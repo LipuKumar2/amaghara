@@ -16,13 +16,33 @@ export default function Contact() {
     })
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    // Handle form submission here
-    console.log('Form submitted:', formData)
-    alert('Thank you for your message! We will get back to you soon.')
-    setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  try {
+    const response = await fetch("http://localhost:5000/api/messages", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formData), // send form data
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert("Message sent successfully!");
+      setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
+    } else {
+      alert(result.message || "Failed to send message");
+    }
+  } catch (error) {
+    console.error("Error sending message:", error);
+    alert("Something went wrong, please try again.");
   }
+};
+
 
   const contactInfo = [
     {

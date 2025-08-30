@@ -37,7 +37,7 @@ function App() {
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/admin" element={<AdminLogin />} />
-            <Route path="/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
         </Route>
       </Routes>

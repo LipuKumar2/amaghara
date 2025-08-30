@@ -1,55 +1,104 @@
-import { useParams, Link } from 'react-router-dom'
-import { useState } from 'react'
+import { useParams, Link, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 
 export default function PropertyDetails() {
   const { id } = useParams()
+  const location = useLocation()
   const [activeImage, setActiveImage] = useState(0)
   const [showContact, setShowContact] = useState(false)
+  const [property, setProperty] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  // Mock property data - in real app this would come from API
-  const property = {
-    id: id,
-    title: '2BHK Modern Apartment in Nayapalli',
-    price: '₹45 Lakhs',
-    pricePerSqft: '₹3,200/sqft',
-    type: '2BHK Apartment',
-    status: 'For Sale',
-    location: 'Nayapalli, Bhubaneswar',
-    area: '1,400 sqft',
-    built: '2019',
-    facing: 'East',
-    floor: '3rd Floor of 5',
-    furnished: 'Semi-Furnished',
-    parking: '1 Car + 1 Bike',
-    description: 'Beautiful 2BHK apartment with modern amenities in prime Nayapalli location. Close to schools, hospitals, and shopping centers. Excellent connectivity to IT hubs.',
-    images: [
-      '/images/p-2.png',
-      '/images/p-4.png',
-      '/images/p-5.png',
-      '/images/p-6.png',
-    ],
-    amenities: [
-      { name: '24x7 Security', icon: '🛡️' },
-      { name: 'Swimming Pool', icon: '🏊' },
-      { name: 'Gym', icon: '💪' },
-      { name: 'Garden', icon: '🌳' },
-      { name: 'Power Backup', icon: '🔌' },
-      { name: 'Lift', icon: '🛗' },
-      { name: 'Parking', icon: '🅿️' },
-      { name: 'Club House', icon: '🏠' },
-    ],
-    nearby: [
-      { name: 'DAV Public School', distance: '0.5 km', type: 'school' },
-      { name: 'AIIMS Bhubaneswar', distance: '3.2 km', type: 'hospital' },
-      { name: 'Esplanade One Mall', distance: '1.8 km', type: 'shopping' },
-      { name: 'Patia Railway Station', distance: '4.5 km', type: 'transport' },
-    ],
-    agent: {
-      name: 'Rajesh Kumar',
-      phone: '+91 98765 43210',
-      email: 'rajesh@amaghara.in',
-      experience: '8+ years',
+  // Fetch property data
+  useEffect(() => {
+    const fetchProperty = async () => {
+      try {
+        setLoading(true)
+        
+        // First try to use data passed from Properties component
+        if (location.state?.propertyData) {
+          setProperty(transformApiData(location.state.propertyData))
+          setLoading(false)
+          return
+        }
+
+        // If no state data, fetch from API
+        const response = await fetch(`http://localhost:5000/property/property/${id}`)
+        if (!response.ok) {
+          throw new Error('Property not found')
+        }
+        const data = await response.json()
+        
+        if (data.success && data.property) {
+          setProperty(transformApiData(data.property))
+        } else {
+          throw new Error('Invalid response format')
+        }
+      } catch (err) {
+        setError(err.message)
+        console.error('Error fetching property:', err)
+      } finally {
+        setLoading(false)
+      }
     }
+
+    fetchProperty()
+  }, [id, location.state])
+
+  // Transform API data to component format
+  const transformApiData = (apiData) => {
+    return {
+      id: apiData._id,
+      title: apiData.title,
+      price: `₹${(apiData.price / 100000).toFixed(1)} Lakhs`,
+      pricePerSqft: `₹${Math.round(apiData.price / (apiData.carpetArea?.value || apiData.superBuiltupArea?.value || 1))}/sqft`,
+      type: `${apiData.bhk}BHK ${apiData.propertyType}`,
+      status: 'For Rent',
+      location: `${apiData.location.address}, ${apiData.location.city}, ${apiData.location.state}`,
+      area: `${apiData.carpetArea?.value || apiData.superBuiltupArea?.value || 0} sqft`,
+      built: new Date().getFullYear() - 2, // Mock data since not in API
+      facing: apiData.facing || 'East',
+      floor: `Floor of ${apiData.totalFloors}`,
+      furnished: apiData.furnishing,
+      parking: `${apiData.carParking || 0} Car parking`,
+      description: apiData.description,
+      maintenanceMonthly: apiData.maintenanceMonthly,
+      bachelorsAllowed: apiData.bachelorsAllowed,
+      images: apiData.images?.map(img => img.url) || apiData.pictures || ['/images/p-1.png'],
+      amenities: apiData.amenities?.map(amenity => ({
+        name: amenity,
+        icon: getAmenityIcon(amenity)
+      })) || [],
+      nearby: [
+        { name: 'KIIT University', distance: '2.0 km', type: 'school' },
+        { name: 'Local Hospital', distance: '1.5 km', type: 'hospital' },
+        { name: 'Shopping Complex', distance: '0.8 km', type: 'shopping' },
+        { name: 'Bus Stop', distance: '0.3 km', type: 'transport' },
+      ],
+      agent: {
+        name: 'Property Agent',
+        phone: apiData.contactNumber,
+        email: apiData.contactEmail,
+        experience: '5+ years',
+      }
+    }
+  }
+
+  const getAmenityIcon = (amenity) => {
+    const iconMap = {
+      'Power Backup': '🔌',
+      'Play Ground': '🏃',
+      'Security': '🛡️',
+      'Fire Safety': '🚨',
+      'Swimming Pool': '🏊',
+      'Gym': '💪',
+      'Garden': '🌳',
+      'Lift': '🛗',
+      'Parking': '🅿️',
+      'Club House': '🏠',
+    }
+    return iconMap[amenity] || '✅'
   }
 
   const getTypeIcon = (type) => {
@@ -60,6 +109,38 @@ export default function PropertyDetails() {
       case 'transport': return '🚉'
       default: return '📍'
     }
+  }
+
+  if (loading) {
+    return (
+      <section className="space-y-12 px-6 sm:px-8 lg:px-12">
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading property details...</p>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (error || !property) {
+    return (
+      <section className="space-y-12 px-6 sm:px-8 lg:px-12">
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="text-red-500 text-xl mb-4">⚠️</div>
+            <p className="text-slate-600">Error loading property: {error || 'Property not found'}</p>
+            <Link 
+              to="/properties" 
+              className="mt-4 inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              Back to Properties
+            </Link>
+          </div>
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -76,7 +157,7 @@ export default function PropertyDetails() {
       {/* Hero */}
       <div className="relative overflow-hidden rounded-3xl border-2 border-white shadow-2xl">
         <div className="absolute inset-0">
-                     <img src="/images/p-7.png" alt="Property" className="w-full h-72 sm:h-80 lg:h-[26rem] object-cover" />
+          <img src={property.images[0]} alt="Property" className="w-full h-72 sm:h-80 lg:h-[26rem] object-cover" />
           <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/30 to-black/40"></div>
         </div>
         <div className="relative px-6 py-10 sm:py-14 lg:py-16 text-white">
@@ -98,6 +179,11 @@ export default function PropertyDetails() {
             <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
               {property.status}
             </span>
+            {property.bachelorsAllowed && (
+              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700">
+                Bachelors Allowed
+              </span>
+            )}
           </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">{property.title}</h1>
           <p className="text-slate-600 flex items-center gap-1">
@@ -107,23 +193,13 @@ export default function PropertyDetails() {
         <div className="text-right">
           <div className="text-3xl font-bold text-sky-600">{property.price}</div>
           <div className="text-sm text-slate-500">{property.pricePerSqft}</div>
+          {property.maintenanceMonthly && (
+            <div className="text-sm text-slate-500">+ ₹{property.maintenanceMonthly}/mo maintenance</div>
+          )}
         </div>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
-        {/* Price + Badges Row */}
-        <div className="lg:col-span-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 -mt-4">
-          <div className="flex items-center gap-2">
-            <span className="badge">{property.type}</span>
-            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
-              {property.status}
-            </span>
-          </div>
-          <div className="text-right">
-            <div className="text-3xl font-black text-indigo-600">{property.price}</div>
-            <div className="text-sm text-slate-500">{property.pricePerSqft}</div>
-          </div>
-        </div>
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-8">
           {/* Image Gallery */}
@@ -135,19 +211,21 @@ export default function PropertyDetails() {
                 className="w-full h-96 object-cover rounded-2xl shadow-lg"
               />
             </div>
-            <div className="grid grid-cols-4 gap-3">
-              {property.images.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => setActiveImage(index)}
-                  className={`rounded-lg overflow-hidden border-2 transition ${
-                    activeImage === index ? 'border-sky-500' : 'border-transparent'
-                  }`}
-                >
-                  <img src={image} alt={`Thumbnail ${index + 1}`} className="w-full h-20 object-cover" />
-                </button>
-              ))}
-            </div>
+            {property.images.length > 1 && (
+              <div className="grid grid-cols-4 gap-3">
+                {property.images.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setActiveImage(index)}
+                    className={`rounded-lg overflow-hidden border-2 transition ${
+                      activeImage === index ? 'border-sky-500' : 'border-transparent'
+                    }`}
+                  >
+                    <img src={image} alt={`Thumbnail ${index + 1}`} className="w-full h-20 object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Property Details */}
@@ -178,6 +256,16 @@ export default function PropertyDetails() {
                 <span className="text-slate-600">Parking:</span>
                 <span className="font-semibold">{property.parking}</span>
               </div>
+              {property.maintenanceMonthly && (
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Maintenance:</span>
+                  <span className="font-semibold">₹{property.maintenanceMonthly}/mo</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-slate-600">Bachelors:</span>
+                <span className="font-semibold">{property.bachelorsAllowed ? 'Allowed' : 'Not Allowed'}</span>
+              </div>
             </div>
           </div>
 
@@ -188,17 +276,19 @@ export default function PropertyDetails() {
           </div>
 
           {/* Amenities */}
-          <div className="rounded-2xl border p-6">
-            <h3 className="text-xl font-bold mb-4">Amenities</h3>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {property.amenities.map((amenity) => (
-                <div key={amenity.name} className="flex items-center gap-2 text-sm">
-                  <span className="text-lg">{amenity.icon}</span>
-                  <span>{amenity.name}</span>
-                </div>
-              ))}
+          {property.amenities.length > 0 && (
+            <div className="rounded-2xl border p-6">
+              <h3 className="text-xl font-bold mb-4">Amenities</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {property.amenities.map((amenity, index) => (
+                  <div key={index} className="flex items-center gap-2 text-sm">
+                    <span className="text-lg">{amenity.icon}</span>
+                    <span>{amenity.name}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Nearby Places */}
           <div className="rounded-2xl border p-6">
@@ -217,21 +307,7 @@ export default function PropertyDetails() {
           </div>
 
           {/* Location Map */}
-          <div className="rounded-2xl border p-6">
-            <h3 className="text-xl font-bold mb-4">Location</h3>
-            <div className="w-full h-64 rounded-xl overflow-hidden border">
-              <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d11487.919780990083!2d85.8350311397493!3d20.284486360855393!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a19090069a9e991%3A0x79f9a2326986a08b!2sCorenova%20Agency%20pvt%20ltd!5e1!3m2!1sen!2sin!4v1754720557866!5m2!1sen!2sin"
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                allowFullScreen=""
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                title="Property Location"
-              ></iframe>
-            </div>
-          </div>
+
         </div>
 
         {/* Sidebar */}
@@ -307,6 +383,31 @@ export default function PropertyDetails() {
               <button className="w-full text-left p-3 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition">
                 🏦 EMI Calculator
               </button>
+            </div>
+          </div>
+
+          {/* Property Highlights */}
+          <div className="rounded-2xl border-2 border-white bg-white p-6 shadow-xl">
+            <h4 className="font-bold mb-4">Property Highlights</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-600">Monthly Rent:</span>
+                <span className="font-semibold text-indigo-600">₹{property.price.replace('₹', '').replace(' Lakhs', '000')}</span>
+              </div>
+              {property.maintenanceMonthly && (
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Maintenance:</span>
+                  <span className="font-semibold">₹{property.maintenanceMonthly}/mo</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-slate-600">Carpet Area:</span>
+                <span className="font-semibold">{property.area}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Furnishing:</span>
+                <span className="font-semibold">{property.furnished}</span>
+              </div>
             </div>
           </div>
         </div>

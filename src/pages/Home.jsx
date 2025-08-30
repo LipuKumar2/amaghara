@@ -8,7 +8,7 @@ export default function Home() {
   const [activeFAQ, setActiveFAQ] = useState(null)
   const [currentTextIndex, setCurrentTextIndex] = useState(0)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
-  
+
   const changingTexts = ['home', 'land', 'flat']
   const heroSlides = [
     {

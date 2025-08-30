@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-
+import Razorpay from 'razorpay'
 export default function UserPricing() {
-  const [selectedPlan, setSelectedPlan] = useState('one-time')
+  const [selectedPlan, setSelectedPlan] = useState(null)
 
   const plans = [
     {
@@ -86,6 +86,153 @@ export default function UserPricing() {
     }
   ]
 
+const paymentHandler = async (plan, e) => {
+  e.preventDefault();
+  const price = plan?.price;
+  try {
+    // Create order on backend
+    const orders = {
+      amount: price * 100,
+      currency: "INR",
+      receipt: `receipt_${new Date().getTime()}`,
+    };
+    
+    const response = await fetch("http://localhost:5000/api/order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(orders),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to create order');
+    }
+    
+    const order = await response.json();
+    console.log('Order created:', order);
+
+    // Check if Razorpay script is loaded
+    if (!window.Razorpay) {
+      alert('Razorpay SDK not loaded. Please refresh the page and try again.');
+      return;
+    }
+
+    const options = {
+      key: "rzp_test_R7wI25WYrMMWvw", // Your Razorpay Key ID
+      amount: orders.amount, // Amount in paise
+      currency: orders.currency,
+      name: "Ama Ghara", // Your business name
+      description: `${selectedPlan} Plan - House Visit Package`,
+      image: "/birdfav.svg", // Your logo
+      order_id: order.id, // Order ID from backend
+      handler: function (response) {
+        // Success callback
+        console.log('Payment successful:', response);
+        verifyPayment({
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_signature: response.razorpay_signature,
+          plan: {
+            id: plan.id,
+            name: plan.name,
+            description: plan.description,
+            price: plan.price,
+            duration: plan.duration,
+            houseVisits: plan.houseVisits,
+            features: plan.features
+          },
+          paymentDetails: {
+            amount: orders.amount,
+            currency: orders.currency,
+            method: response.method || 'card',
+            bank: response.bank || null,
+            wallet: response.wallet || null,
+            vpa: response.vpa || null,
+            email: response.email || '',
+            contact: response.contact || ''
+          },
+          transactionId: response.razorpay_payment_id
+        });
+      },
+      prefill: {
+        name: "",
+        email: "", 
+        contact: "", // You can collect this from a form
+      },
+      notes: {
+        plan: selectedPlan,
+        house_visits: price === 99 ? 1 : price === 499 ? 3 : price === 799 ? 6 : 9
+      },
+      theme: {
+        color: "#6366f1", // Indigo color to match your theme
+      },
+      modal: {
+        ondismiss: function() {
+          console.log('Payment modal closed');
+        }
+      }
+    };
+
+    const rzp = new window.Razorpay(options);
+    
+    rzp.on('payment.failed', function (response) {
+      console.error('Payment failed:', response.error);
+      alert(`Payment failed: ${response.error.description}`);
+      
+      // You can handle specific error cases here
+      switch(response.error.code) {
+        case 'BAD_REQUEST_ERROR':
+          alert('There was an issue with your payment details. Please try again.');
+          break;
+        case 'GATEWAY_ERROR':
+          alert('Payment gateway error. Please try again later.');
+          break;
+        case 'NETWORK_ERROR':
+          alert('Network error. Please check your connection and try again.');
+          break;
+        default:
+          alert('Payment failed. Please try again.');
+      }
+    });
+
+    // Open Razorpay checkout
+    rzp.open();
+    
+  } catch (error) {
+    console.error('Error in payment handler:', error);
+    alert('Something went wrong. Please try again.');
+  }
+};
+
+// Function to verify payment on backend
+const verifyPayment = async (paymentData) => {
+  try {
+    const response = await fetch("http://localhost:5000/api/verify-payment", {
+      method: "POST",
+      credentials: 'include',
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(paymentData),
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // Payment verified successfully
+      alert('Payment successful! Your plan has been activated.');
+      // Redirect to success page or dashboard
+      // window.location.href = '/dashboard';
+    } else {
+      alert('Payment verification failed. Please contact support.');
+    }
+  } catch (error) {
+    console.error('Error verifying payment:', error);
+    alert('Error verifying payment. Please contact support.');
+  }
+};
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-rose-50">
       {/* Hero Section */}
@@ -111,11 +258,14 @@ export default function UserPricing() {
           {/* One-Time Visit Card - Top */}
           <div className="mb-12">
             <div className="max-w-sm mx-auto">
-              <div onClick={() => setSelectedPlan('one-time')} className={`relative rounded-3xl border-2 cursor-pointer transition-all duration-500 hover:scale-105 overflow-hidden ${
-                selectedPlan === 'one-time'
-                  ? 'border-indigo-200 bg-white shadow-2xl shadow-indigo-500/20 ring-4 ring-indigo-500/20'
-                  : 'border-indigo-200 bg-gradient-to-br from-indigo-50 to-fuchsia-50 shadow-xl hover:shadow-2xl'
-              }`}>
+              <div 
+                onClick={() => setSelectedPlan(plans[0])} 
+                className={`relative rounded-3xl border-2 cursor-pointer transition-all duration-500 hover:scale-105 overflow-hidden ${
+                  selectedPlan?.id === 'one-time'
+                    ? 'border-indigo-200 bg-white shadow-2xl shadow-indigo-500/20 ring-4 ring-indigo-500/20'
+                    : 'border-indigo-200 bg-gradient-to-br from-indigo-50 to-fuchsia-50 shadow-xl hover:shadow-2xl'
+                }`}
+              >
                 {/* Special Offer Badge */}
                 <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 z-10">
                   <div className="bg-gradient-to-r from-indigo-500 to-fuchsia-500 text-white px-6 py-2 rounded-full font-bold text-sm shadow-lg animate-pulse">
@@ -177,12 +327,12 @@ export default function UserPricing() {
                   </div>
 
                   {/* Special CTA Button */}
-                  <Link
-                    to="/contact"
-                    className="w-full py-3 px-4 rounded-2xl font-bold text-white bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:from-indigo-600 hover:to-fuchsia-600 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl animate-pulse block text-center"
+                  <button
+                    onClick={(e) => paymentHandler(plans[0], e)}
+                    className="w-full py-3 px-4 rounded-2xl font-bold text-white bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:from-indigo-600 hover:to-fuchsia-600 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl animate-pulse"
                   >
                     🔥 GRAB THIS OFFER NOW
-                  </Link>
+                  </button>
                   
                   {/* Urgency Message */}
                   <div className="mt-2 text-xs text-indigo-700 font-medium">
@@ -198,12 +348,12 @@ export default function UserPricing() {
             {plans.slice(1).map((plan) => (
               <div
                 key={plan.id}
-                onClick={() => setSelectedPlan(plan.id)}
+                onClick={() => setSelectedPlan(plan)}
                 className={`relative rounded-3xl border-2 cursor-pointer transition-all duration-500 hover:scale-105 ${
-                  selectedPlan === plan.id || plan.popular
+                  (selectedPlan?.id === plan.id || plan.popular)
                     ? 'border-indigo-200 bg-white shadow-2xl shadow-indigo-500/20'
                     : 'border-slate-200 bg-white shadow-xl hover:shadow-2xl'
-                } ${selectedPlan === plan.id ? 'ring-4 ring-indigo-500/20' : ''}`}
+                } ${selectedPlan?.id === plan.id ? 'ring-4 ring-indigo-500/20' : ''}`}
               >
                 {/* Popular Badge */}
                 {plan.popular && (
@@ -249,16 +399,19 @@ export default function UserPricing() {
                   </div>
 
                   {/* CTA Button */}
-                  <Link
-                    to="/contact"
-                    className={`w-full py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl block text-center ${
-                      (plan.popular || selectedPlan === plan.id)
+                  <button
+                    onClick={(e) => {
+                      setSelectedPlan(plan);
+                      paymentHandler(plan, e);
+                    }}
+                    className={`w-full py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl ${
+                      (plan.popular || selectedPlan?.id === plan.id)
                         ? 'bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:from-indigo-600 hover:to-fuchsia-600'
                         : 'bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700'
                     }`}
                   >
                     Choose {plan.name}
-                  </Link>
+                  </button>
                 </div>
               </div>
             ))}
@@ -308,4 +461,4 @@ export default function UserPricing() {
       </section>
     </div>
   )
-} 
+}

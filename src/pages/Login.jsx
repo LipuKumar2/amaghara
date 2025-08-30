@@ -8,7 +8,8 @@ export default function Login() {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-
+const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState({});
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -31,8 +32,18 @@ export default function Login() {
   };
 
   // Social login handlers (replace with real OAuth later)
-  const handleGoogleLogin = () => alert("Google Sign-In clicked!");
-  
+ const handleGoogleLogin = () => {
+    try {
+      setIsLoading(true);
+      setErrors({});
+      
+    window.location.href = 'http://localhost:5000/auth/user/google';
+    } catch (err) {
+      console.error('Google signup error:', err);
+      setErrors({ submit: 'Failed to initiate Google signup. Please try again.' });
+      setIsLoading(false);
+    }
+  };   
   
 
   return (
@@ -46,6 +57,7 @@ export default function Login() {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+        <p>{errors.message}</p>
           <div>
             <label htmlFor="email" className="block text-gray-700 font-medium mb-2">Email</label>
             <input

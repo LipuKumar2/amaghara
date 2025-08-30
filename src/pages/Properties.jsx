@@ -8,8 +8,37 @@ export default function Properties() {
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [properties, setProperties] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  // Read URL params for pre-filling filters (e.g., ?type=2BHK&query=patia)
+  // Fetch properties from API
+  useEffect(() => {
+    const fetchProperties = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch('http://localhost:5000/property/property')
+        if (!response.ok) {
+          throw new Error('Failed to fetch properties')
+        }
+        const data = await response.json()
+        if (data.success && data.properties) {
+          setProperties(data.properties)
+        } else {
+          throw new Error('Invalid response format')
+        }
+      } catch (err) {
+        setError(err.message)
+        console.error('Error fetching properties:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProperties()
+  }, [])
+
+  // Read URL params for pre-filling filters
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const typeParam = params.get('type')
@@ -21,40 +50,47 @@ export default function Properties() {
       setQuery(queryParam)
     }
   }, [])
+
   const sliderRef = useRef(null)
 
-  const items = [
-    { id: 1, title: '1RK near KIIT Square', price: 6500, priceLabel: '₹6,500/mo', badge: '1RK', img: '/images/p-1.png', location: 'KIIT Square, Patia', area: '420 sqft', beds: 1, baths: 1, category: 'rent', type: '1RK', featured: true },
-    { id: 2, title: '1BHK in Patia', price: 9500, priceLabel: '₹9,500/mo', badge: '1BHK', img: '/images/p-2.png', location: 'Patia, Bhubaneswar', area: '620 sqft', beds: 1, baths: 1, category: 'rent', type: '1BHK', featured: true },
-    { id: 3, title: '2BHK, Nayapalli', price: 4500000, priceLabel: '₹45L', badge: '2BHK', img: '/images/p-7.png', location: 'Nayapalli', area: '980 sqft', beds: 2, baths: 2, category: 'sale', type: '2BHK', featured: true },
-    { id: 4, title: 'Land Plot, Pahala', price: 2200000, priceLabel: '₹22L', badge: 'Land', img: '/images/p-4.png', location: 'Pahala', area: '1500 sqft', beds: 0, baths: 0, category: 'sale', type: 'Land', featured: true },
-    { id: 5, title: '3BHK • Saheed Nagar', price: 6500000, priceLabel: '₹65L', badge: '3BHK', img: '/images/p-5.png', location: 'Saheed Nagar', area: '1450 sqft', beds: 3, baths: 3, category: 'sale', type: '3BHK', featured: true },
-    { id: 6, title: '2BHK • Old Town', price: 12000, priceLabel: '₹12,000/mo', badge: '2BHK', img: '/images/p-6.png', location: 'Old Town', area: '900 sqft', beds: 2, baths: 2, category: 'rent', type: '2BHK', featured: true },
-    { id: 7, title: 'Premium Land • Khandagiri', price: 3800000, priceLabel: '₹38L', badge: 'Land', img: '/images/p-4.png', location: 'Khandagiri', area: '2400 sqft', beds: 0, baths: 0, category: 'sale', type: 'Land', featured: true },
-    { id: 8, title: 'Modern 1BHK • Patrapada', price: 11000, priceLabel: '₹11,000/mo', badge: '1BHK', img: '/images/p-2.png', location: 'Patrapada', area: '640 sqft', beds: 1, baths: 1, category: 'rent', type: '1BHK', featured: true },
-    { id: 9, title: 'Family 2BHK • Chandrasekharpur', price: 5200000, priceLabel: '₹52L', badge: '2BHK', img: '/images/p-7.png', location: 'Chandrasekharpur', area: '1200 sqft', beds: 2, baths: 2, category: 'sale', type: '2BHK', featured: true },
-    { id: 10, title: 'Luxury 3BHK • Jayadev Vihar', price: 8500000, priceLabel: '₹85L', badge: '3BHK', img: '/images/p-5.png', location: 'Jayadev Vihar', area: '1800 sqft', beds: 3, baths: 3, category: 'sale', type: '3BHK', featured: true },
-    { id: 11, title: 'Studio 1RK • Rasulgarh', price: 7500, priceLabel: '₹7,500/mo', badge: '1RK', img: '/images/p-1.png', location: 'Rasulgarh', area: '380 sqft', beds: 1, baths: 1, category: 'rent', type: '1RK', featured: true },
-    { id: 12, title: 'Premium 2BHK • VSS Nagar', price: 15000, priceLabel: '₹15,000/mo', badge: '2BHK', img: '/images/p-7.png', location: 'VSS Nagar', area: '1100 sqft', beds: 2, baths: 2, category: 'rent', type: '2BHK', featured: true },
-  ]
+  // Transform API data to match existing component structure
+  const transformedItems = useMemo(() => {
+    return properties.map(property => ({
+      id: property._id,
+      title: property.title,
+      price: property.price,
+      priceLabel: `₹${property.price.toLocaleString()}/mo`,
+      badge: `${property.bhk}BHK`,
+      img: property.images?.[0]?.url || property.pictures?.[0] || '/images/p-1.png',
+      location: `${property.location.address}, ${property.location.city}`,
+      area: `${property.carpetArea?.value || property.superBuiltupArea?.value || 0} sqft`,
+      beds: property.bhk,
+      baths: property.bathrooms,
+      category: 'rent', // Since API data shows rent properties
+      type: `${property.bhk}BHK`,
+      featured: true,
+      // Additional data for property details
+      propertyData: property
+    }))
+  }, [properties])
 
   const tabOptions = [
     { key: 'all', label: 'All' },
     { key: 'rent', label: 'Rent' },
     { key: 'sale', label: 'Sale' },
     { key: 'land', label: 'Land' },
-    { key: '1RK', label: '1RK' },
     { key: '1BHK', label: '1BHK' },
     { key: '2BHK', label: '2BHK' },
     { key: '3BHK', label: '3BHK' },
+    { key: '4BHK', label: '4BHK' },
   ]
 
   const counts = useMemo(() => ({
-    total: items.length,
-    rent: items.filter(i => i.category === 'rent').length,
-    sale: items.filter(i => i.category === 'sale').length,
-    land: items.filter(i => i.type === 'Land').length,
-  }), [items])
+    total: transformedItems.length,
+    rent: transformedItems.filter(i => i.category === 'rent').length,
+    sale: transformedItems.filter(i => i.category === 'sale').length,
+    land: transformedItems.filter(i => i.type === 'Land').length,
+  }), [transformedItems])
 
   const clearFilters = () => {
     setQuery('')
@@ -67,8 +103,8 @@ export default function Properties() {
 
   const slideLeft = () => {
     if (sliderRef.current) {
-      const cardWidth = 288 // 72 * 4 (w-72 = 18rem = 288px)
-      const gap = 16 // gap-4 = 1rem = 16px
+      const cardWidth = 288
+      const gap = 16
       const scrollAmount = cardWidth + gap
       sliderRef.current.scrollBy({ left: -scrollAmount, behavior: 'smooth' })
     }
@@ -76,28 +112,33 @@ export default function Properties() {
 
   const slideRight = () => {
     if (sliderRef.current) {
-      const cardWidth = 288 // 72 * 4 (w-72 = 18rem = 288px)
-      const gap = 16 // gap-4 = 1rem = 16px
+      const cardWidth = 288
+      const gap = 16
       const scrollAmount = cardWidth + gap
       sliderRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' })
     }
   }
 
-  const featuredItems = items.filter(i => i.featured)
+  const featuredItems = transformedItems.filter(i => i.featured)
 
   const filtered = useMemo(() => {
-    let list = [...items]
+    let list = [...transformedItems]
 
     // Tab filter
     if (activeTab === 'rent') list = list.filter(i => i.category === 'rent')
     else if (activeTab === 'sale') list = list.filter(i => i.category === 'sale')
     else if (activeTab === 'land') list = list.filter(i => i.type === 'Land')
-    else if (['1RK', '1BHK', '2BHK', '3BHK'].includes(activeTab)) list = list.filter(i => i.type === activeTab)
+    else if (['1BHK', '2BHK', '3BHK', '4BHK'].includes(activeTab)) {
+      list = list.filter(i => i.type === activeTab)
+    }
 
     // Query filter
     if (query.trim()) {
       const q = query.toLowerCase()
-      list = list.filter(i => i.title.toLowerCase().includes(q) || i.location.toLowerCase().includes(q))
+      list = list.filter(i => 
+        i.title.toLowerCase().includes(q) || 
+        i.location.toLowerCase().includes(q)
+      )
     }
 
     // Price filters
@@ -112,7 +153,39 @@ export default function Properties() {
     if (sort === 'featured') list.sort((a, b) => Number(b.featured) - Number(a.featured))
 
     return list
-  }, [items, activeTab, query, sort, minPrice, maxPrice])
+  }, [transformedItems, activeTab, query, sort, minPrice, maxPrice])
+
+  if (loading) {
+    return (
+      <section className="space-y-12 px-6 sm:px-8 lg:px-12">
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading properties...</p>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (error) {
+    return (
+      <section className="space-y-12 px-6 sm:px-8 lg:px-12">
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="text-red-500 text-xl mb-4">⚠️</div>
+            <p className="text-slate-600">Error loading properties: {error}</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="space-y-12 px-6 sm:px-8 lg:px-12">
@@ -130,13 +203,11 @@ export default function Properties() {
             <h1 className="text-white text-4xl sm:text-5xl lg:text-6xl font-black leading-tight">Find your next home, a premium land plot, or a budget-friendly flat</h1>
             <p className="mt-3 text-white/90 text-lg">Smart filters. Trusted listings. Beautiful homes.</p>
           </div>
-
-
         </div>
       </div>
 
       {/* Filters Panel */}
-             <div className="rounded-3xl border-2 border-white bg-white p-6 sm:p-7 shadow-xl -mt-8">
+      <div className="rounded-3xl border-2 border-white bg-white p-6 sm:p-7 shadow-xl -mt-8">
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-4">
           {tabOptions.map(t => (
@@ -166,15 +237,17 @@ export default function Properties() {
             <option value="price-desc">Price: High to Low</option>
           </select>
         </div>
-                 <div className="mt-4 flex items-center justify-between gap-3">
+        
+        <div className="mt-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm">
             <button onClick={clearFilters} className="rounded-xl px-3 py-2 font-semibold text-indigo-700 hover:underline bg-white">✕ Clear</button>
-            <div className="hidden sm:block text-slate-700 font-semibold">{filtered.length} of {items.length} results</div>
+            <div className="hidden sm:block text-slate-700 font-semibold">{filtered.length} of {transformedItems.length} results</div>
           </div>
           <button onClick={() => setShowFilters(!showFilters)} className="rounded-xl px-3 py-2 font-semibold text-white bg-indigo-600 border border-indigo-600">
             {showFilters ? 'Hide Filters' : 'Advanced Filters'}
           </button>
         </div>
+        
         {showFilters && (
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <input className="rounded-xl border-2 border-slate-200 px-4 py-3 text-slate-800 focus:border-indigo-500 focus:outline-none" placeholder="City / Area (e.g., Patia, Old Town)" />
@@ -200,80 +273,104 @@ export default function Properties() {
       </div>
 
       {/* Featured Slider */}
-      <div>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-2xl font-black text-slate-900">Featured</h2>
-          <div className="flex items-center gap-3">
-            <button onClick={slideLeft} className="h-10 w-10 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl">
-              ←
-            </button>
-            <button onClick={slideRight} className="h-10 w-10 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl">
-              →
-            </button>
-            <Link to="/contact" className="text-indigo-700 font-semibold hover:underline">Need help finding? →</Link>
+      {featuredItems.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-2xl font-black text-slate-900">Featured</h2>
+            <div className="flex items-center gap-3">
+              <button onClick={slideLeft} className="h-10 w-10 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl">
+                ←
+              </button>
+              <button onClick={slideRight} className="h-10 w-10 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl">
+                →
+              </button>
+              <Link to="/contact" className="text-indigo-700 font-semibold hover:underline">Need help finding? →</Link>
+            </div>
+          </div>
+          <div ref={sliderRef} className="overflow-x-auto snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex gap-4 min-w-max px-1">
+              {featuredItems.map(i => (
+                <Link 
+                  key={i.id} 
+                  to={`/properties/${i.id}`}
+                  state={{ propertyData: i.propertyData }}
+                  className="group snap-start"
+                >
+                  <article className="w-72 rounded-3xl overflow-hidden border-2 border-white bg-white shadow-xl hover:shadow-2xl transition-all duration-300 snap-always">
+                    <div className="relative">
+                      <img src={i.img} alt={i.title} className="h-44 w-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-60"></div>
+                      <span className="badge absolute left-3 top-3">{i.badge}</span>
+                      <div className="absolute left-3 bottom-3 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow">{i.priceLabel}</div>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-bold text-slate-900 line-clamp-1">{i.title}</h3>
+                      <div className="text-sm text-slate-600 line-clamp-1">{i.location}</div>
+                    </div>
+                  </article>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
-        <div ref={sliderRef} className="overflow-x-auto snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex gap-4 min-w-max px-1">
-            {featuredItems.map(i => (
-              <Link key={i.id} to={`/properties/${i.id}`} className="group snap-start">
-                <article className="w-72 rounded-3xl overflow-hidden border-2 border-white bg-white shadow-xl hover:shadow-2xl transition-all duration-300 snap-always">
-                  <div className="relative">
-                    <img src={i.img} alt={i.title} className="h-44 w-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-60"></div>
-                    <span className="badge absolute left-3 top-3">{i.badge}</span>
-                    <div className="absolute left-3 bottom-3 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow">{i.priceLabel}</div>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-bold text-slate-900 line-clamp-1">{i.title}</h3>
-                    <div className="text-sm text-slate-600">{i.location}</div>
-                  </div>
-                </article>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Grid */}
       <div>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-2xl font-black text-slate-900">All Listings</h2>
-          <div className="text-sm text-slate-600 font-semibold">Showing {filtered.length} of {items.length}</div>
+          <div className="text-sm text-slate-600 font-semibold">Showing {filtered.length} of {transformedItems.length}</div>
         </div>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map(i => (
-            <Link key={i.id} to={`/properties/${i.id}`} className="group">
-              <article className="rounded-3xl overflow-hidden border-2 border-white bg-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.01]">
-                <div className="relative">
-                  <img src={i.img} alt={i.title} className="h-56 w-full object-cover transition group-hover:scale-105 duration-300" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-60 group-hover:opacity-70 transition"></div>
-                  <span className="badge absolute left-3 top-3">{i.badge}</span>
-                  <div className="absolute right-3 top-3">
-                    <button className="h-9 w-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center text-slate-700 hover:text-red-500 transition shadow">♡</button>
+        
+        {filtered.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">🏠</div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">No properties found</h3>
+            <p className="text-slate-600 mb-4">Try adjusting your search criteria or filters</p>
+            <button onClick={clearFilters} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition">
+              Clear All Filters
+            </button>
+          </div>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map(i => (
+              <Link 
+                key={i.id} 
+                to={`/properties/${i.id}`}
+                state={{ propertyData: i.propertyData }}
+                className="group"
+              >
+                <article className="rounded-3xl overflow-hidden border-2 border-white bg-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.01]">
+                  <div className="relative">
+                    <img src={i.img} alt={i.title} className="h-56 w-full object-cover transition group-hover:scale-105 duration-300" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-60 group-hover:opacity-70 transition"></div>
+                    <span className="badge absolute left-3 top-3">{i.badge}</span>
+                    <div className="absolute right-3 top-3">
+                      <button className="h-9 w-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center text-slate-700 hover:text-red-500 transition shadow">♡</button>
+                    </div>
+                    {i.featured && (
+                      <div className="absolute left-3 bottom-3 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow">Featured</div>
+                    )}
                   </div>
-                  {i.featured && (
-                    <div className="absolute left-3 bottom-3 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow">Featured</div>
-                  )}
-                </div>
-                <div className="p-5">
-                  <h3 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-indigo-600 transition-colors">{i.title}</h3>
-                  <div className="text-slate-600 text-sm mb-2">{i.location}</div>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-indigo-600 font-black text-lg">{i.priceLabel}</div>
-                    <div className="text-sm text-slate-600 font-semibold">{i.area}</div>
+                  <div className="p-5">
+                    <h3 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-indigo-600 transition-colors">{i.title}</h3>
+                    <div className="text-slate-600 text-sm mb-2">{i.location}</div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-indigo-600 font-black text-lg">{i.priceLabel}</div>
+                      <div className="text-sm text-slate-600 font-semibold">{i.area}</div>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-slate-600 font-semibold">
+                      <span>🛏️ {i.beds}</span>
+                      <span>🛁 {i.baths}</span>
+                      <span>📐 {i.area}</span>
+                    </div>
+                    <button className="btn-outline mt-4 w-full">View Details</button>
                   </div>
-                  <div className="flex items-center gap-3 text-sm text-slate-600 font-semibold">
-                    <span>🛏️ {i.beds}</span>
-                    <span>🛁 {i.baths}</span>
-                    <span>📐 {i.area}</span>
-                  </div>
-                  <button className="btn-outline mt-4 w-full">View Details</button>
-                </div>
-              </article>
-            </Link>
-          ))}
-        </div>
+                </article>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Map Preview */}
@@ -290,7 +387,7 @@ export default function Properties() {
       {/* Bottom CTA */}
       <div className="text-center">
         <div className="bg-gradient-to-r from-indigo-500 to-fuchsia-500 rounded-3xl p-8 lg:p-12 text-white">
-          <h2 className="text-3xl font-black mb-4">Can’t find what you’re looking for?</h2>
+          <h2 className="text-3xl font-black mb-4">Can't find what you're looking for?</h2>
           <p className="text-white/90 text-lg mb-8">Tell us your exact needs and our team will find the perfect property for you within 24 hours.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/contact" className="bg-white text-indigo-600 px-8 py-4 rounded-2xl font-bold hover:bg-slate-100 transition-all duration-300">Contact Our Experts</Link>

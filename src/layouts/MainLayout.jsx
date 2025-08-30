@@ -1,5 +1,5 @@
 import { Link, Outlet, NavLink } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   FaWhatsapp,
   FaFacebookF,
@@ -7,11 +7,81 @@ import {
   FaLinkedin,
   FaEnvelope,
   FaPhone,
+  FaUser,
+  FaSignOutAlt,
 } from 'react-icons/fa';
 
 export default function MainLayout() {
   const [pricingDropdownOpen, setPricingDropdownOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('http://localhost:5000/user/home', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setUser(data.user);
+        } else {
+          setError(data.message || 'Failed to fetch user data');
+        }
+      } catch (err) {
+        setError('Error connecting to server');
+        console.error('Fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/auth/user/logout', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        setUser(null);
+        setProfileDropdownOpen(false);
+        // Optionally redirect to home or login page
+        window.location.href = '/';
+      } else {
+        console.error('Logout failed');
+      }
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+  };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setPricingDropdownOpen(false);
+      setProfileDropdownOpen(false);
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-rose-50">
@@ -75,7 +145,10 @@ export default function MainLayout() {
             {/* Pricing Dropdown */}
             <div className="relative">
               <button
-                onClick={() => setPricingDropdownOpen(!pricingDropdownOpen)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPricingDropdownOpen(!pricingDropdownOpen);
+                }}
                 className="px-4 py-2 rounded-lg font-medium transition text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 flex items-center gap-1"
               >
                 Pricing <span className="text-xs">▼</span>
@@ -132,18 +205,88 @@ export default function MainLayout() {
             >
               List Your Property
             </Link>
-            <Link
-              to="/register"
-              className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition"
-            >
-              Register
-            </Link>
-            <Link
-              to="/login"
-              className="rounded-lg bg-indigo-600 px-5 py-2.5 font-bold text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-            >
-              Sign In
-            </Link>
+            
+            {loading ? (
+              <div className="w-10 h-10 rounded-full bg-indigo-100 animate-pulse"></div>
+            ) : user ? (
+              // Profile Dropdown
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setProfileDropdownOpen(!profileDropdownOpen);
+                  }}
+                  className="rounded-full w-10 h-10 overflow-hidden shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 border-2 border-indigo-200"
+                  title={user.name || user.email}
+                >
+                  {user.picture ? (
+                    <img
+                      src="https://lh3.googleusercontent.com/a/ACg8ocIza1t9aD6YpNPW14IZDgoDG8rOgTw67icmt_fosBvbOzrWD1Pl=s96-c"
+                      alt={user.name || user.email}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Fallback to initials if image fails to load
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div 
+                    className="w-full h-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm"
+                    style={{ display: user.picture ? 'none' : 'flex' }}
+                  >
+                    {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                  </div>
+                </button>
+                
+                {profileDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-xl py-2 z-50">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <div className="text-sm text-gray-600">Signed in as</div>
+                      <div className="font-medium text-gray-900 truncate">
+                        {user.name || 'User'}
+                      </div>
+                      <div className="text-sm text-gray-500 truncate">
+                        {user.email}
+                      </div>
+                    </div>
+                    
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                      onClick={() => setProfileDropdownOpen(false)}
+                    >
+                      <FaUser className="w-4 h-4" />
+                      My Profile
+                    </Link>
+                    
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-left text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <FaSignOutAlt className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Login/Register Buttons
+              <>
+                <Link 
+                  to="/register" 
+                  className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition"
+                >
+                  Sign Up
+                </Link>
+                <Link 
+                  to="/login" 
+                  className="rounded-lg bg-indigo-600 px-5 py-2.5 font-bold text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                >
+                  Sign In
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -162,6 +305,41 @@ export default function MainLayout() {
         {mobileMenuOpen && (
           <div className="lg:hidden border-t border-indigo-100 bg-white/95 backdrop-blur">
             <div className="mx-auto max-w-7xl px-6 py-4 grid gap-2">
+              {/* User info for mobile */}
+              {user && (
+                <div className="px-4 py-3 bg-indigo-50 rounded-lg mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-indigo-200">
+                      {user.picture ? (
+                        <img
+                          src={user.picture}
+                          alt={user.name || user.email}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div 
+                        className="w-full h-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold"
+                        style={{ display: user.picture ? 'none' : 'flex' }}
+                      >
+                        {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-indigo-900">
+                        {user.name || 'User'}
+                      </div>
+                      <div className="text-xs text-indigo-700 truncate">
+                        {user.email}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <NavLink
                 to="/"
                 onClick={() => setMobileMenuOpen(false)}
@@ -245,6 +423,47 @@ export default function MainLayout() {
               >
                 📞 Contact
               </NavLink>
+
+              {/* Mobile Auth Buttons */}
+              {user ? (
+                <div className="grid gap-2 mt-4 pt-4 border-t border-indigo-100">
+                  <Link
+                    to="/profile"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-600"
+                  >
+                    <FaUser className="w-4 h-4" />
+                    My Profile
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-red-600 hover:bg-red-50 text-left"
+                  >
+                    <FaSignOutAlt className="w-4 h-4" />
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <div className="grid gap-2 mt-4 pt-4 border-t border-indigo-100">
+                  <Link
+                    to="/register"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-4 py-3 rounded-lg font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 text-center"
+                  >
+                    Sign Up
+                  </Link>
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-4 py-3 rounded-lg bg-indigo-600 font-bold text-white shadow-lg text-center"
+                  >
+                    Sign In
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -258,30 +477,29 @@ export default function MainLayout() {
       {/* Footer */}
       <footer className="border-t border-indigo-100 bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 text-white relative">
         {/* Floating Social Icons */}
-       <div className="fixed bottom-5 right-5 flex flex-col gap-4 z-50">
-  {[
-    { href: "https://wa.me/918093237123", color: "bg-green-500", icon: <FaWhatsapp size={20} />, title: "WhatsApp" },
-    { href: "mailto:contact.amaghara@gmail.com", color: "bg-red-500", icon: <FaEnvelope size={20} />, title: "Email" },
-    { href: "tel:+918093237123", color: "bg-blue-500", icon: <FaPhone size={20} />, title: "Call" },
-    { href: "https://www.facebook.com/share/1B48C9BYnY/", color: "bg-blue-700", icon: <FaFacebookF size={20} />, title: "Facebook" },
-    { href: "https://www.instagram.com/ama___ghara?igsh=MWFscW9rZjEyNTh5aw==", color: "bg-pink-500", icon: <FaInstagram size={20} />, title: "Instagram" },
-    { href: "https://www.linkedin.com/in/ama-ghara-9772a137a?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app", color: "bg-blue-600", icon: <FaLinkedin size={20} />, title: "LinkedIn" },
-  ].map((item, i) => (
-    <a
-      key={i}
-      href={item.href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`${item.color} text-white w-12 h-12 flex items-center justify-center rounded-full shadow-lg relative transition-all duration-300 hover:scale-125`}
-      title={item.title}
-    >
-      {/* Glow Effect */}
-      <span className="absolute inset-0 rounded-full blur-lg opacity-75 animate-pulse" style={{ backgroundColor: "inherit" }}></span>
-      <span className="relative z-10">{item.icon}</span>
-    </a>
-  ))}
-</div>
-
+        <div className="fixed bottom-5 right-5 flex flex-col gap-4 z-50">
+          {[
+            { href: "https://wa.me/918093237123", color: "bg-green-500", icon: <FaWhatsapp size={20} />, title: "WhatsApp" },
+            { href: "mailto:contact.amaghara@gmail.com", color: "bg-red-500", icon: <FaEnvelope size={20} />, title: "Email" },
+            { href: "tel:+918093237123", color: "bg-blue-500", icon: <FaPhone size={20} />, title: "Call" },
+            { href: "https://www.facebook.com/share/1B48C9BYnY/", color: "bg-blue-700", icon: <FaFacebookF size={20} />, title: "Facebook" },
+            { href: "https://www.instagram.com/ama___ghara?igsh=MWFscW9rZjEyNTh5aw==", color: "bg-pink-500", icon: <FaInstagram size={20} />, title: "Instagram" },
+            { href: "https://www.linkedin.com/in/ama-ghara-9772a137a?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app", color: "bg-blue-600", icon: <FaLinkedin size={20} />, title: "LinkedIn" },
+          ].map((item, i) => (
+            <a
+              key={i}
+              href={item.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${item.color} text-white w-12 h-12 flex items-center justify-center rounded-full shadow-lg relative transition-all duration-300 hover:scale-125`}
+              title={item.title}
+            >
+              {/* Glow Effect */}
+              <span className="absolute inset-0 rounded-full blur-lg opacity-75 animate-pulse" style={{ backgroundColor: "inherit" }}></span>
+              <span className="relative z-10">{item.icon}</span>
+            </a>
+          ))}
+        </div>
 
         <div className="mx-auto max-w-7xl px-6 py-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -323,10 +541,18 @@ export default function MainLayout() {
 
             {/* Socials */}
             <div className="flex items-center gap-3">
-              <a href="#" className="h-9 w-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center text-white hover:bg-white/20 transition-all">📱</a>
-              <a href="#" className="h-9 w-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center text-white hover:bg-white/20 transition-all">📧</a>
-              <a href="#" className="h-9 w-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center text-white hover:bg-white/20 transition-all">📘</a>
-              <a href="#" className="h-9 w-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center text-white hover:bg-white/20 transition-all">📷</a>
+              <a href="https://wa.me/918093237123" className="h-9 w-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center text-white hover:bg-white/20 transition-all">
+                <FaWhatsapp />
+              </a>
+              <a href="mailto:contact.amaghara@gmail.com" className="h-9 w-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center text-white hover:bg-white/20 transition-all">
+                <FaEnvelope />
+              </a>
+              <a href="https://www.facebook.com/share/1B48C9BYnY/" className="h-9 w-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center text-white hover:bg-white/20 transition-all">
+                <FaFacebookF />
+              </a>
+              <a href="https://www.instagram.com/ama___ghara?igsh=MWFscW9rZjEyNTh5aw==" className="h-9 w-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center text-white hover:bg-white/20 transition-all">
+                <FaInstagram />
+              </a>
             </div>
           </div>
 

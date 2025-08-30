@@ -6,6 +6,8 @@ const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   const handleLogin = (e) => {
@@ -16,6 +18,21 @@ const AdminLogin = () => {
       navigate("/dashboard");
     } else {
       alert("Invalid credentials");
+    }
+  };
+
+
+    const handleAdminGoogleLogin = () => {
+    try {
+      setAuthLoading('admin');
+      setError(null);
+      
+      // Redirect to the admin Google OAuth endpoint
+      window.location.href = `http://localhost:5000/auth/admin/google`;
+    } catch (err) {
+      console.error('Admin Google login error:', err);
+      setError('Failed to initiate admin login. Please try again.');
+      setAuthLoading(false);
     }
   };
 
@@ -30,6 +47,7 @@ const AdminLogin = () => {
         </p>
 
         <form onSubmit={handleLogin} className="space-y-5">
+        <p className="text-red-500 text-sm">{error}</p>
           {/* Email */}
           <div className="relative">
             <Mail className="absolute top-3 left-3 text-gray-400" size={18} />
@@ -82,7 +100,7 @@ const AdminLogin = () => {
         {/* Google Login */}
         <button
           type="button"
-          onClick={() => alert("Google Sign In clicked!")}
+          onClick={handleAdminGoogleLogin}
           className="w-full flex items-center justify-center gap-3 border py-3 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition"
         >
           <img
