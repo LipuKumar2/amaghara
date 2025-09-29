@@ -16,6 +16,10 @@ import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
+import ForgotPassword from './pages/ForgotPassword'
+import SettingsPage from './pages/SettingPage'
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
   return (
@@ -34,13 +38,19 @@ function App() {
            <Route path="/submit-property" element={<SubmitProperty />} />
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/profile" element={<SettingsPage />} />
+
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
+
+        </Route>
           <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
-        </Route>
+
       </Routes>
+                  <ToastContainer position="top-right" autoClose={3000} />
     </BrowserRouter>
   )
 }

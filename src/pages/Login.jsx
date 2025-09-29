@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
-
+import { toast } from "react-toastify";
+import { useUser } from "../layouts/MainLayout";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -14,22 +15,46 @@ const [isLoading, setIsLoading] = useState(false);
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+  const { setUser } = useUser();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      console.log("Login Data:", formData);
-      await new Promise((res) => setTimeout(res, 1000));
-      alert("Login Successful!");
-      navigate("/");
-    } catch (error) {
-      console.error(error);
-      alert("Login Failed. Please try again.");
-    } finally {
-      setLoading(false);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  try {
+    console.log("Login Data:", formData);
+
+    const response = await fetch("https://amaghara-server.onrender.com/user/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // ✅ important if backend sets cookies
+      body: JSON.stringify(formData),
+    });
+
+    if (!response.ok) {
+      // handle HTTP errors
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Login failed");
     }
-  };
+
+    const data = await response.json();
+    console.log("Login success:", data);
+    setUser(data.user);
+
+    // if backend returns a user object or token, store it in context/localStorage here
+    // setUser(data.user);
+
+    toast.success("Login Successful!");
+    navigate("/");
+  } catch (error) {
+    console.error("Login error:", error);
+    toast.error(error.message || "Login Failed. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // Social login handlers (replace with real OAuth later)
  const handleGoogleLogin = () => {
@@ -37,7 +62,7 @@ const [isLoading, setIsLoading] = useState(false);
       setIsLoading(true);
       setErrors({});
       
-    window.location.href = 'http://localhost:5000/auth/user/google';
+    window.location.href = 'https://amaghara-server.onrender.com/auth/user/google';
     } catch (err) {
       console.error('Google signup error:', err);
       setErrors({ submit: 'Failed to initiate Google signup. Please try again.' });

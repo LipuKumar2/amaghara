@@ -217,7 +217,7 @@ const PropertyForm = () => {
       };
 
       // Submit the property data
-      const response = await fetch('http://localhost:5000/property/property', {
+      const response = await fetch('https://amaghara-server.onrender.com/property/property', {
         method: 'POST',
         credentials:'include',
         headers: {
@@ -229,7 +229,7 @@ const PropertyForm = () => {
       const result = await response.json();
 
       if (result.success) {
-        alert('Property created successfully!');
+        toast.success('Property created successfully!');
         navigate('/properties');
       } else {
         setError(result.message || 'Error creating property');
@@ -242,7 +242,9 @@ const PropertyForm = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">      
+    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">   
+    <scroll>
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Information Section */}
         <div className="border-b border-gray-200 pb-6">
@@ -739,6 +741,8 @@ const PropertyForm = () => {
           </button>
         </div>
       </form>
+          </scroll>   
+
     </div>
   );
 };

@@ -50,10 +50,10 @@ export default function About() {
   }, [])
 
   const stats = [
-    { number: animatedNumbers.properties, label: 'Properties Sold', icon: '🏠', color: 'from-indigo-500 to-indigo-600' },
-    { number: animatedNumbers.clients, label: 'Happy Clients', icon: '😊', color: 'from-indigo-500 to-indigo-600' },
-    { number: animatedNumbers.years, label: 'Years Experience', icon: '⭐', color: 'from-indigo-500 to-indigo-600' },
-    { number: animatedNumbers.satisfaction, label: 'Satisfaction Rate', icon: '💯', color: 'from-indigo-500 to-indigo-600' }
+    { number: "175", label: 'Properties Sold', icon: '🏠', color: 'from-indigo-500 to-indigo-600' },
+    { number: '100', label: 'Happy Clients', icon: '😊', color: 'from-indigo-500 to-indigo-600' },
+  { number: '25', label: 'Team Members', icon: '👨‍👩‍👧‍👦', color: 'from-indigo-500 to-indigo-600' },
+    { number: '98', label: 'Satisfaction Rate', icon: '💯', color: 'from-indigo-500 to-indigo-600' }
   ]
 
   const teamMembers = [
@@ -93,12 +93,6 @@ export default function About() {
       title: 'Market Leader',
       description: 'Leading real estate platform in Odisha with highest customer satisfaction',
       number: '1st'
-    },
-    {
-      icon: '⭐',
-      title: 'Award Winner',
-      description: 'Multiple awards for excellence in real estate services and innovation',
-      number: '5+'
     },
     {
       icon: '🤝',
@@ -170,7 +164,7 @@ export default function About() {
               </span>
             </h1>
             <p className="text-lg text-white/90 max-w-3xl mx-auto mb-8 leading-relaxed">
-              For over 15 years, we've been helping families find their perfect homes, 
+              we've been helping families find their perfect homes, 
               making dreams come true one property at a time.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -238,7 +232,7 @@ export default function About() {
             <div className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-4 py-2 rounded-full text-sm font-bold mb-4">
               📖 Our Story
             </div>
-            <h2 className="text-3xl font-black text-slate-900 mb-4">Building Dreams Since 2009</h2>
+            <h2 className="text-3xl font-black text-slate-900 mb-4">Building Dreams </h2>
             <p className="text-lg text-slate-600 mb-6 leading-relaxed">
               Ama Ghara started with a simple vision: to make home buying and selling 
               transparent, reliable, and enjoyable. What began as a small local agency 
@@ -247,15 +241,15 @@ export default function About() {
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold">✓</div>
-                <span className="text-slate-700 font-semibold">15+ years of experience in real estate</span>
+                <span className="text-slate-700 font-semibold">Fresh perspective with modern real estate solutions</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold">✓</div>
-                <span className="text-slate-700 font-semibold">500+ properties successfully sold</span>
+                <span className="text-slate-700 font-semibold">Tech-driven approach for smarter property matches</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold">✓</div>
-                <span className="text-slate-700 font-semibold">2000+ happy families served</span>
+                <span className="text-slate-700 font-semibold">Passionate team dedicated to your dream home</span>
               </div>
             </div>
           </div>
@@ -269,8 +263,8 @@ export default function About() {
             </div>
             <div className="absolute -bottom-4 -right-4 bg-white rounded-2xl p-4 shadow-xl border-2 border-indigo-100">
               <div className="text-center">
-                <div className="text-2xl font-black text-indigo-600">15+</div>
-                <div className="text-sm text-slate-600 font-semibold">Years of Excellence</div>
+                <div className="text-2xl font-black text-indigo-600">100+</div>
+                <div className="text-sm text-slate-600 font-semibold">Happy Costomers</div>
               </div>
             </div>
           </div>

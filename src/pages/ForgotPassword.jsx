@@ -1,11 +1,9 @@
 import React, { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
-import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
-const Register = () => {
+const ForgotPassword = () => {
   const [formData, setFormData] = useState({
-    name: "",
     email: "",
     otp: "",
     password: "",
@@ -14,12 +12,11 @@ const Register = () => {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [agreed, setAgreed] = useState(false);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1); // 1: Basic info, 2: OTP, 3: Password
+  const [currentStep, setCurrentStep] = useState(1); // 1: Email, 2: OTP, 3: New Password
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -44,10 +41,6 @@ const Register = () => {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email is invalid';
-    }
-    
-    if (!formData.name) {
-      newErrors.name = 'Name is required';
     }
     
     setErrors(newErrors);
@@ -80,10 +73,6 @@ const Register = () => {
       newErrors.confirmPassword = 'Passwords do not match';
     }
     
-    if (!agreed) {
-      newErrors.agreed = 'You must agree to the terms and conditions';
-    }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -100,7 +89,7 @@ const Register = () => {
         },
         body: JSON.stringify({
           email: formData.email,
-          purpose: 'register'
+          purpose: 'reset' // Use 'reset' for password reset
         }),
         credentials: 'include'
       });
@@ -134,7 +123,7 @@ const Register = () => {
         body: JSON.stringify({
           email: formData.email,
           otp: formData.otp,
-          purpose: 'register'
+          purpose: 'reset'
         }),
         credentials: 'include'
       });
@@ -155,32 +144,37 @@ const Register = () => {
     }
   };
 
-  const handleRegistration = async () => {
+  const handleResetPassword = async () => {
     if (!validateStep3()) return;
     
     setIsLoading(true);
     try {
-      // Create a copy of formData without the otp field
-      const { otp, ...registrationData } = formData;
-      
-      const response = await fetch('https://amaghara-server.onrender.com/user/register', {
+      const response = await fetch('https://amaghara-server.onrender.com/user/reset-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(registrationData),
+        body: JSON.stringify({
+          email: formData.email,
+          otp: formData.otp,
+          newPassword: formData.password
+        }),
         credentials: 'include'
       });
       
       const data = await response.json();
       
       if (data.success) {
-        navigate('/');
+        // Show success message and redirect to login
+        setErrors({ success: "Password reset successfully! Redirecting to login..." });
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
       } else {
         setErrors({ submit: data.message });
       }
     } catch (error) {
-      setErrors({ submit: 'An error occurred during registration. Please try again.' });
+      setErrors({ submit: 'An error occurred during password reset. Please try again.' });
     } finally {
       setIsLoading(false);
     }
@@ -195,30 +189,22 @@ const Register = () => {
     } else if (currentStep === 2) {
       await handleVerifyOtp();
     } else if (currentStep === 3) {
-      await handleRegistration();
-    }
-  };
-
-  const handleGoogleSignup = () => {
-    try {
-      setIsLoading(true);
-      setErrors({});
-      window.location.href = 'https://amaghara-server.onrender.com/auth/user/google';
-    } catch (err) {
-      console.error('Google signup error:', err);
-      setErrors({ submit: 'Failed to initiate Google signup. Please try again.' });
-      setIsLoading(false);
+      await handleResetPassword();
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="bg-white rounded-3xl shadow-xl p-10 md:p-12 w-full max-w-md">
+        <Link to="/login" className="flex items-center text-gray-600 mb-4 text-sm hover:text-indigo-600">
+          <ArrowLeft size={16} className="mr-1" /> Back to Login
+        </Link>
+        
         <h2 className="text-3xl font-extrabold text-center mb-2 bg-gradient-to-r from-indigo-600 to-pink-600 bg-clip-text text-transparent">
-          Create Account
+          Reset Password
         </h2>
         <p className="text-center text-gray-500 mb-6 text-sm">
-          Join us and explore amazing opportunities 🚀
+          Enter your email and follow the steps to reset your password
         </p>
 
         {/* Progress Steps */}
@@ -227,7 +213,7 @@ const Register = () => {
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 1 ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-400'}`}>
               1
             </div>
-            <span className="text-xs mt-1">Details</span>
+            <span className="text-xs mt-1">Email</span>
           </div>
           <div className={`flex flex-col items-center ${currentStep >= 2 ? 'text-indigo-600' : 'text-gray-400'}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 2 ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-400'}`}>
@@ -249,23 +235,16 @@ const Register = () => {
           </div>
         )}
 
+        {errors.success && (
+          <div className="bg-green-50 text-green-700 p-3 rounded-lg mb-4 text-sm">
+            {errors.success}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Step 1: Name and Email */}
+          {/* Step 1: Email */}
           {currentStep === 1 && (
             <>
-              <div className="relative">
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Full Name"
-                  className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition"
-                  required
-                />
-                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
-              </div>
-
               <div className="relative">
                 <input
                   type="email"
@@ -278,6 +257,10 @@ const Register = () => {
                 />
                 {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
               </div>
+              
+              <p className="text-sm text-gray-500">
+                Enter your email address and we'll send you a verification code to reset your password.
+              </p>
             </>
           )}
 
@@ -313,7 +296,7 @@ const Register = () => {
             </>
           )}
 
-          {/* Step 3: Password and Terms */}
+          {/* Step 3: New Password */}
           {currentStep === 3 && (
             <>
               <div className="relative">
@@ -322,7 +305,7 @@ const Register = () => {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  placeholder="Password"
+                  placeholder="New Password"
                   className="w-full border border-gray-300 rounded-xl px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition"
                   required
                 />
@@ -342,7 +325,7 @@ const Register = () => {
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  placeholder="Confirm Password"
+                  placeholder="Confirm New Password"
                   className="w-full border border-gray-300 rounded-xl px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition"
                   required
                 />
@@ -355,21 +338,6 @@ const Register = () => {
                 </button>
                 {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
               </div>
-
-              <div className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={agreed}
-                  onChange={() => setAgreed(!agreed)}
-                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                />
-                <span className="text-gray-600">
-                  I agree to the{" "}
-                  <Link to="/terms" className="text-indigo-600 hover:underline">Terms & Conditions</Link> and{" "}
-                  <Link to="/privacy" className="text-indigo-600 hover:underline">Privacy Policy</Link>
-                </span>
-              </div>
-              {errors.agreed && <p className="text-red-500 text-xs mt-1">{errors.agreed}</p>}
             </>
           )}
 
@@ -393,38 +361,13 @@ const Register = () => {
               {isLoading ? 'Processing...' : 
                 currentStep === 1 ? 'Send OTP' : 
                 currentStep === 2 ? 'Verify OTP' : 
-                'Create Account'}
+                'Reset Password'}
             </button>
           </div>
         </form>
 
-        {/* Divider - Only show on first step */}
-        {currentStep === 1 && (
-          <>
-            <div className="flex items-center my-4">
-              <hr className="flex-grow border-gray-300" />
-              <span className="px-2 text-gray-400 text-sm">or</span>
-              <hr className="flex-grow border-gray-300" />
-            </div>
-
-            {/* Google */}
-            <button
-              type="button"
-              onClick={handleGoogleSignup}
-              className="w-full flex items-center justify-center gap-3 border py-3 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition"
-            >
-              <img
-                src="https://www.svgrepo.com/show/355037/google.svg"
-                alt="Google"
-                className="w-5 h-5"
-              />
-              Sign up with Google
-            </button>
-          </>
-        )}
-
         <p className="text-center text-gray-600 mt-6 text-sm">
-          Already have an account?{" "}
+          Remember your password?{" "}
           <Link to="/login" className="text-indigo-600 font-semibold hover:underline">
             Login
           </Link>
@@ -434,4 +377,4 @@ const Register = () => {
   );
 };
 
-export default Register;
+export default ForgotPassword;

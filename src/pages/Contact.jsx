@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'react-toastify';
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -8,6 +9,7 @@ export default function Contact() {
     subject: '',
     message: ''
   })
+  const [loading,setLoading]= useState(false)
 
   const handleInputChange = (e) => {
     setFormData({
@@ -17,10 +19,11 @@ export default function Contact() {
   }
 
 const handleSubmit = async (e) => {
+  setLoading(true);
   e.preventDefault();
 
   try {
-    const response = await fetch("http://localhost:5000/api/messages", {
+    const response = await fetch("https://amaghara-server.onrender.com/api/messages", {
       method: "POST",
       credentials: "include",
       headers: {
@@ -32,15 +35,16 @@ const handleSubmit = async (e) => {
     const result = await response.json();
 
     if (result.success) {
-      alert("Message sent successfully!");
+      toast.success("Message sent successfully!");
       setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
     } else {
-      alert(result.message || "Failed to send message");
+    toast.error(result.message || "Failed to send message");
     }
   } catch (error) {
     console.error("Error sending message:", error);
-    alert("Something went wrong, please try again.");
+  toast.error("Something went wrong, please try again.");
   }
+  setLoading(false);
 };
 
 
@@ -187,9 +191,10 @@ const handleSubmit = async (e) => {
 
                 <button
                   type="submit"
+                  disabled={loading}
                   className="w-full py-4 px-8 bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:from-indigo-600 hover:to-fuchsia-600 text-white font-bold rounded-xl transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
                 >
-                  Send Message
+                  {loading?"Sending Message":"Send Message"}
                 </button>
               </form>
             </div>

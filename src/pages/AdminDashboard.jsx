@@ -38,13 +38,14 @@ const AdminDashboard = () => {
   const [admin, setAdmin] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
+const [selectedProperty, setSelectedProperty] = useState(null);
+const [showPropertyModal, setShowPropertyModal] = useState(false);
   // Admin auth check
   useEffect(() => {
     const fetchAdminData = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:5000/admin/home', {
+        const response = await fetch('https://amaghara-server.onrender.com/admin/home', {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -69,15 +70,15 @@ const AdminDashboard = () => {
     };
 
     fetchAdminData();
-  }, [navigate]);
+  }, []);
 
   // Fetch data from backend
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const usersRes = await axios.get("http://localhost:5000/admin/user-list");
-        const messagesRes = await axios.get("http://localhost:5000/api/messages");
-        const properties = await axios.get("http://localhost:5000/property/property");
+        const usersRes = await axios.get("https://amaghara-server.onrender.com/admin/user-list");
+        const messagesRes = await axios.get("https://amaghara-server.onrender.com/api/messages");
+        const properties = await axios.get("https://amaghara-server.onrender.com/property/property");
 
         setUsersData(usersRes.data.users || []);
         setMessagesData(messagesRes.data.data || []);
@@ -112,10 +113,36 @@ const AdminDashboard = () => {
     });
   };
 
-  const handleLogout = () => {
+const handleLogout = async () => {
+  try {
+    // Call the logout endpoint
+    const response = await fetch('https://amaghara-server.onrender.com/auth/admin/logout', {
+      method: 'POST',
+      credentials: 'include' // Include cookies for session-based authentication
+    });
+
+    // Check if logout was successful
+    if (response.ok) {
+      // Clear local storage
+      localStorage.removeItem("isAdmin");
+      
+      // Navigate to admin page
+      navigate("/admin");
+    } else {
+      // Handle server errors
+      console.error('Logout failed:', response.statusText);
+      // Still clear local storage and navigate as fallback
+      localStorage.removeItem("isAdmin");
+      navigate("/admin");
+    }
+  } catch (error) {
+    // Handle network errors
+    console.error('Logout error:', error);
+    // Fallback: clear local storage and navigate
     localStorage.removeItem("isAdmin");
     navigate("/admin");
-  };
+  }
+};
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: <Home size={20} /> },
@@ -147,13 +174,13 @@ const AdminDashboard = () => {
         // Check if we're updating subscription or basic user info
         if (currentItem.isSubscriptionUpdate) {
           // Update subscription
-          await axios.put(`http://localhost:5000/user/${currentItem._id}/subscription`, {
+          await axios.put(`https://amaghara-server.onrender.com/user/${currentItem._id}/subscription`, {
             isActive: currentItem.subscription.isActive,
             remark: currentItem.subscription.remarks
           });
         } else {
           // Update basic user info
-          await axios.put(`http://localhost:5000/admin/user/${currentItem._id}`, {
+          await axios.put(`https://amaghara-server.onrender.com/admin/user/${currentItem._id}`, {
             name: currentItem.name,
             email: currentItem.email,
             phone: currentItem.phone
@@ -176,7 +203,7 @@ const AdminDashboard = () => {
           })
         } : u));
       } else if (currentItem.type === "Property") {
-        await axios.put(`http://localhost:5000/property/property/${currentItem._id}`, currentItem);
+        await axios.put(`https://amaghara-server.onrender.com/property/property/${currentItem._id}`, currentItem);
         setListingsData(listingsData.map(l => l._id === currentItem._id ? currentItem : l));
       }
       setEditModalOpen(false);
@@ -188,13 +215,13 @@ const AdminDashboard = () => {
   const handleDelete = async () => {
     try {
       if (currentItem.type === "User") {
-        await axios.delete(`http://localhost:5000/user/${currentItem._id}`);
+        await axios.delete(`https://amaghara-server.onrender.com/user/${currentItem._id}`);
         setUsersData(usersData.filter(u => u._id !== currentItem._id));
       } else if (currentItem.type === "Property") {
-        await axios.delete(`http://localhost:5000/property/property/${currentItem._id}`,{withCredentials:true});
+        await axios.delete(`https://amaghara-server.onrender.com/property/property/${currentItem._id}`,{withCredentials:true});
         setListingsData(listingsData.filter(l => l._id !== currentItem._id));
       } else if (currentItem.type === "Message") {
-        await axios.delete(`http://localhost:5000/api/messages/${currentItem._id}`);
+        await axios.delete(`https://amaghara-server.onrender.com/api/messages/${currentItem._id}`);
         setMessagesData(messagesData.filter(m => m._id !== currentItem._id));
       }
       setDeleteModalOpen(false);
@@ -261,13 +288,7 @@ const AdminDashboard = () => {
                   </span>
                 </div>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="max-w-32">
-                  <span className="text-sm text-gray-600 block truncate">
-                    {user.subscription?.remarks || 'No remarks'}
-                  </span>
-                </div>
-              </td>
+
               <td className="px-6 py-4 whitespace-nowrap flex gap-2">
                 <button 
                   onClick={() => openEditModal({ ...user, type: "User" }, false)} 
@@ -294,6 +315,7 @@ const AdminDashboard = () => {
     </div>
   );
 
+  // property listing table
   const renderListings = () => (
     <div className="overflow-x-auto bg-white rounded-xl shadow p-4">
       <table className="min-w-full divide-y divide-gray-200 table-auto">
@@ -310,39 +332,209 @@ const AdminDashboard = () => {
         </thead>
         <tbody className="divide-y divide-gray-200">
           {listingsData.map((listing) => (
-            <tr key={listing._id} className="hover:bg-green-50 transition">
-              <td className="px-6 py-4 whitespace-nowrap flex items-center gap-2">
-                {listing.pictures && listing.pictures[0] && 
-                  <img src={listing.pictures[0]} alt={listing.title} className="w-12 h-12 rounded-lg object-cover"/>
-                }
-                <span className="max-w-xs truncate">{listing.title}</span>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm">
-                  <div>{listing.location?.city}, {listing.location?.state}</div>
-                  <div className="text-gray-500 text-xs">{listing.location?.zipCode}</div>
-                </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">₹{listing.price?.toLocaleString()}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{listing.bhk} BHK</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm">{listing.propertyType}</td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <span className={`px-2 py-1 rounded-full text-white text-sm ${
-                  listing.isActive ? "bg-green-500" : "bg-red-500"
-                }`}>
-                  {listing.isActive ? "Active" : "Inactive"}
-                </span>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap flex gap-2">
-                <button onClick={() => openEditModal({ ...listing, type: "Property" })} className="text-indigo-600 hover:text-indigo-800"><Edit2 size={18} /></button>
-                <button onClick={() => openDeleteModal({ ...listing, type: "Property" })} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
-              </td>
-            </tr>
+// Updated table row with click handler
+<tr 
+  key={listing._id} 
+  className="hover:bg-green-50 transition cursor-pointer"
+  onClick={() => {
+    setSelectedProperty(listing);
+    setShowPropertyModal(true);
+  }}
+>
+  <td className="px-6 py-4 whitespace-nowrap flex items-center gap-2">
+    {listing.pictures && listing.pictures[0] && 
+      <img src={listing.pictures[0]} alt={listing.title} className="w-12 h-12 rounded-lg object-cover"/>
+    }
+    <span className="max-w-xs truncate">{listing.title}</span>
+  </td>
+  <td className="px-6 py-4 whitespace-nowrap">
+    <div className="text-sm">
+      <div>{listing.location?.city}, {listing.location?.state}</div>
+      <div className="text-gray-500 text-xs">{listing.location?.zipCode}</div>
+    </div>
+  </td>
+  <td className="px-6 py-4 whitespace-nowrap">₹{listing.price?.toLocaleString()}</td>
+  <td className="px-6 py-4 whitespace-nowrap">{listing.bhk} BHK</td>
+  <td className="px-6 py-4 whitespace-nowrap text-sm">{listing.propertyType}</td>
+  <td className="px-6 py-4 whitespace-nowrap">
+    <span className={`px-2 py-1 rounded-full text-white text-sm ${
+      listing.isActive ? "bg-green-500" : "bg-red-500"
+    }`}>
+      {listing.isActive ? "Active" : "Inactive"}
+    </span>
+  </td>
+  <td className="px-6 py-4 whitespace-nowrap flex gap-2">
+    <button 
+      onClick={(e) => {
+        e.stopPropagation();
+        openEditModal({ ...listing, type: "Property" });
+      }} 
+      className="text-indigo-600 hover:text-indigo-800"
+    >
+      <Edit2 size={18} />
+    </button>
+    <button 
+      onClick={(e) => {
+        e.stopPropagation();
+        openDeleteModal({ ...listing, type: "Property" });
+      }} 
+      className="text-red-500 hover:text-red-700"
+    >
+      <Trash2 size={18} />
+    </button>
+  </td>
+</tr>
           ))}
         </tbody>
       </table>
     </div>
   );
+
+//property details 
+// Property Details Modal Component
+const PropertyDetailsModal = () => {
+  if (!showPropertyModal || !selectedProperty) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 " onClick={() => setShowPropertyModal(false)}>
+      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">{selectedProperty.title}</h2>
+              <p className="text-lg font-semibold text-green-600 mt-1">₹{selectedProperty.price?.toLocaleString()}</p>
+            </div>
+            <button 
+              onClick={() => setShowPropertyModal(false)}
+              className="text-gray-400 hover:text-gray-600 transition"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          {/* Property Images */}
+          {selectedProperty.pictures && selectedProperty.pictures.length > 0 && (
+            <div className="mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {selectedProperty.pictures.map((image, index) => (
+                  <img 
+                    key={index}
+                    src={image} 
+                    alt={`${selectedProperty.title} ${index + 1}`}
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Property Details Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            {/* Basic Info */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-gray-900 mb-3">Basic Information</h3>
+              <div className="space-y-2 text-sm">
+                <div><span className="text-gray-600">BHK:</span> {selectedProperty.bhk} BHK</div>
+                <div><span className="text-gray-600">Bathrooms:</span> {selectedProperty.bathrooms}</div>
+                <div><span className="text-gray-600">Property Type:</span> {selectedProperty.propertyType}</div>
+                <div><span className="text-gray-600">Furnishing:</span> {selectedProperty.furnishing}</div>
+                <div><span className="text-gray-600">Facing:</span> {selectedProperty.facing}</div>
+              </div>
+            </div>
+
+            {/* Area Details */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-gray-900 mb-3">Area Details</h3>
+              <div className="space-y-2 text-sm">
+                {selectedProperty.superBuiltupArea && (
+                  <div><span className="text-gray-600">Super Built-up Area:</span> {selectedProperty.superBuiltupArea.value} {selectedProperty.superBuiltupArea.unit}</div>
+                )}
+                {selectedProperty.carpetArea && (
+                  <div><span className="text-gray-600">Carpet Area:</span> {selectedProperty.carpetArea.value} {selectedProperty.carpetArea.unit}</div>
+                )}
+                <div><span className="text-gray-600">Floor:</span> {selectedProperty.floorNo} of {selectedProperty.totalFloors}</div>
+              </div>
+            </div>
+
+            {/* Location */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-gray-900 mb-3">Location</h3>
+              <div className="space-y-2 text-sm">
+                <div><span className="text-gray-600">Address:</span> {selectedProperty.location?.address}</div>
+                <div><span className="text-gray-600">City:</span> {selectedProperty.location?.city}</div>
+                <div><span className="text-gray-600">State:</span> {selectedProperty.location?.state}</div>
+                <div><span className="text-gray-600">ZIP:</span> {selectedProperty.location?.zipCode}</div>
+                <div><span className="text-gray-600">Country:</span> {selectedProperty.location?.country}</div>
+              </div>
+            </div>
+
+            {/* Facilities */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-gray-900 mb-3">Facilities</h3>
+              <div className="space-y-2 text-sm">
+                <div><span className="text-gray-600">Car Parking:</span> {selectedProperty.carParking}</div>
+                <div><span className="text-gray-600">Bachelors Allowed:</span> {selectedProperty.bachelorsAllowed ? 'Yes' : 'No'}</div>
+                <div><span className="text-gray-600">Monthly Maintenance:</span> ₹{selectedProperty.maintenanceMonthly}</div>
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-gray-900 mb-3">Contact Information</h3>
+              <div className="space-y-2 text-sm">
+                <div><span className="text-gray-600">Phone:</span> {selectedProperty.contactNumber}</div>
+                <div><span className="text-gray-600">Email:</span> {selectedProperty.contactEmail}</div>
+              </div>
+            </div>
+
+            {/* Status & Stats */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-gray-900 mb-3">Status & Stats</h3>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="text-gray-600">Status:</span> 
+                  <span className={`ml-2 px-2 py-1 rounded-full text-white text-xs ${
+                    selectedProperty.isActive ? "bg-green-500" : "bg-red-500"
+                  }`}>
+                    {selectedProperty.isActive ? "Active" : "Inactive"}
+                  </span>
+                </div>
+                <div><span className="text-gray-600">Views:</span> {selectedProperty.views}</div>
+                <div><span className="text-gray-600">Created:</span> {new Date(selectedProperty.createdAt).toLocaleDateString()}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          {selectedProperty.description && (
+            <div className="mb-6">
+              <h3 className="font-semibold text-gray-900 mb-3">Description</h3>
+              <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">{selectedProperty.description}</p>
+            </div>
+          )}
+
+          {/* Amenities */}
+          {selectedProperty.amenities && selectedProperty.amenities.length > 0 && (
+            <div className="mb-6">
+              <h3 className="font-semibold text-gray-900 mb-3">Amenities</h3>
+              <div className="flex flex-wrap gap-2">
+                {selectedProperty.amenities.map((amenity, index) => (
+                  <span 
+                    key={index}
+                    className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
+                  >
+                    {amenity}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
   const renderMessages = () => (
     <div className="overflow-x-auto bg-white rounded-xl shadow p-4">
@@ -397,6 +589,7 @@ const AdminDashboard = () => {
               {stats.map((stat) => (
                 <div
                   key={stat.title}
+                  onClick={() => {setActivePage(stat.title.toLowerCase()); setSidebarOpen(false);}}
                   className={`bg-gradient-to-r ${stat.color} text-white rounded-xl p-5 flex items-center justify-between shadow-lg hover:shadow-xl transition`}
                 >
                   <div>
@@ -415,6 +608,8 @@ const AdminDashboard = () => {
       case "users":
         return renderUsers();
       case "listings":
+        return renderListings();
+      case "properties":
         return renderListings();
       case "messages":
         return renderMessages();
@@ -664,6 +859,8 @@ const AdminDashboard = () => {
           </Dialog.Panel>
         </div>
       </Dialog>
+      {showPropertyModal && <PropertyDetailsModal />}
+
     </div>
   );
 };

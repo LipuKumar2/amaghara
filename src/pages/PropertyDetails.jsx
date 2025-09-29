@@ -5,10 +5,20 @@ export default function PropertyDetails() {
   const { id } = useParams()
   const location = useLocation()
   const [activeImage, setActiveImage] = useState(0)
-  const [showContact, setShowContact] = useState(false)
   const [property, setProperty] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [similarProperties, setSimilarProperties] = useState([]);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
+  // Contact form state
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    message: ''
+  })
+  const [formSubmitted, setFormSubmitted] = useState(false)
+  const [formError, setFormError] = useState('')
 
   // Fetch property data
   useEffect(() => {
@@ -24,7 +34,7 @@ export default function PropertyDetails() {
         }
 
         // If no state data, fetch from API
-        const response = await fetch(`http://localhost:5000/property/property/${id}`)
+        const response = await fetch(`https://amaghara-server.onrender.com/property/property/${id}`)
         if (!response.ok) {
           throw new Error('Property not found')
         }
@@ -46,13 +56,46 @@ export default function PropertyDetails() {
     fetchProperty()
   }, [id, location.state])
 
+
+  useEffect(() => {
+    const fetchSimilarProperties = async () => {
+      if (!property) return;
+      
+      try {
+        setLoadingSimilar(true)
+        const response = await fetch(`https://amaghara-server.onrender.com/property/similar/${property.id}`)
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch similar properties')
+        }
+        
+        const data = await response.json()
+        
+        if (data.success && data.similarProperties) {
+ 
+          setSimilarProperties(data.similarProperties)
+          console.log('Fetched similar properties:', data.similarProperties)
+        } else {
+          throw new Error('Invalid response format for similar properties')
+        }
+      } catch (err) {
+        console.error('Error fetching similar properties:', err)
+      } finally {
+        setLoadingSimilar(false)
+      }
+    }
+
+    if (property) {
+      fetchSimilarProperties()
+    }
+  }, [property])
+
   // Transform API data to component format
   const transformApiData = (apiData) => {
     return {
       id: apiData._id,
       title: apiData.title,
-      price: `₹${(apiData.price / 100000).toFixed(1)} Lakhs`,
-      pricePerSqft: `₹${Math.round(apiData.price / (apiData.carpetArea?.value || apiData.superBuiltupArea?.value || 1))}/sqft`,
+      price: `Rs. ${(apiData.price)}/mo`,
       type: `${apiData.bhk}BHK ${apiData.propertyType}`,
       status: 'For Rent',
       location: `${apiData.location.address}, ${apiData.location.city}, ${apiData.location.state}`,
@@ -81,7 +124,9 @@ export default function PropertyDetails() {
         phone: apiData.contactNumber,
         email: apiData.contactEmail,
         experience: '5+ years',
-      }
+      },
+      // Keep original API data for submission
+      originalData: apiData
     }
   }
 
@@ -108,6 +153,62 @@ export default function PropertyDetails() {
       case 'shopping': return '🛒'
       case 'transport': return '🚉'
       default: return '📍'
+    }
+  }
+
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    })
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setFormError('')
+
+    try {
+      // Prepare property details for submission
+      const propertyDetails = {
+        id: property.id,
+        title: property.title,
+        price: property.price,
+        type: property.type,
+        location: property.location,
+        area: property.area,
+        bhk: property.originalData.bhk,
+        propertyType: property.originalData.propertyType,
+        description: property.description,
+        images: property.images.slice(0, 2) // Send first 2 images
+      }
+
+      // Add property reference to the message
+      const messageData = {
+        ...formData,
+        subject: `Inquiry about ${property.title}`,
+        propertyDetails: propertyDetails
+      }
+
+      const response = await fetch("https://amaghara-server.onrender.com/api/contact-agent", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(messageData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setFormSubmitted(true)
+        setFormData({ name: "", email: "", phone: "", message: "" })
+      } else {
+        setFormError(result.message || "Failed to send message")
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      setFormError("Something went wrong, please try again.")
     }
   }
 
@@ -192,7 +293,6 @@ export default function PropertyDetails() {
         </div>
         <div className="text-right">
           <div className="text-3xl font-bold text-sky-600">{property.price}</div>
-          <div className="text-sm text-slate-500">{property.pricePerSqft}</div>
           {property.maintenanceMonthly && (
             <div className="text-sm text-slate-500">+ ₹{property.maintenanceMonthly}/mo maintenance</div>
           )}
@@ -290,21 +390,7 @@ export default function PropertyDetails() {
             </div>
           )}
 
-          {/* Nearby Places */}
-          <div className="rounded-2xl border p-6">
-            <h3 className="text-xl font-bold mb-4">What's Nearby</h3>
-            <div className="space-y-3">
-              {property.nearby.map((place, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{getTypeIcon(place.type)}</span>
-                    <span>{place.name}</span>
-                  </div>
-                  <span className="text-sm text-slate-500">{place.distance}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+
 
           {/* Location Map */}
 
@@ -329,39 +415,60 @@ export default function PropertyDetails() {
               </div>
             </div>
 
-            {showContact ? (
-              <div className="space-y-3">
-                <a href={`tel:${property.agent.phone}`} className="btn-primary w-full">
-                  📞 Call {property.agent.phone}
-                </a>
-                <a href={`mailto:${property.agent.email}`} className="btn-outline w-full">
-                  ✉️ Email Agent
-                </a>
-                <button 
-                  onClick={() => setShowContact(false)}
-                  className="w-full text-sm text-slate-500 hover:text-slate-700"
-                >
-                  Hide Contact
-                </button>
+            {formSubmitted ? (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                <div className="text-green-600 font-bold mb-2">✅ Message Sent!</div>
+                <p className="text-green-700 text-sm">Our agent will contact you shortly.</p>
               </div>
             ) : (
-              <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-                <input className="w-full rounded-xl border px-4 py-3" placeholder="Your Name" />
-                <input className="w-full rounded-xl border px-4 py-3" placeholder="Phone Number" type="tel" />
-                <input className="w-full rounded-xl border px-4 py-3" placeholder="Email" type="email" />
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <input 
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className="w-full rounded-xl border px-4 py-3" 
+                  placeholder="Your Name" 
+                  required
+                />
+                <input 
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className="w-full rounded-xl border px-4 py-3" 
+                  placeholder="Phone Number" 
+                  type="tel" 
+                  required
+                />
+                <input 
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="w-full rounded-xl border px-4 py-3" 
+                  placeholder="Email" 
+                  type="email" 
+                  required
+                />
                 <textarea 
+                  name="message"
+                  value={formData.message}
+                  onChange={handleInputChange}
                   className="w-full rounded-xl border px-4 py-3" 
                   rows="3" 
                   placeholder="I'm interested in this property..."
+                  required
                 />
-                <button 
-                  onClick={() => setShowContact(true)}
-                  className="w-full py-4 px-6 rounded-2xl font-bold text-white bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:from-indigo-600 hover:to-fuchsia-600 transition-all duration-300 hover:scale-105 shadow-lg"
-                >
-                  Get Contact Details
-                </button>
+
+                {formError && (
+                  <div className="text-red-500 text-sm text-center">{formError}</div>
+                )}
+
                 <div className="text-center">
-                  <button className="w-full py-3 px-5 rounded-2xl font-bold text-indigo-700 bg-white border-2 border-indigo-200 hover:bg-indigo-50 transition-all">Schedule Site Visit</button>
+                  <button 
+                    type="submit"
+                    className="w-full py-4 px-6 rounded-2xl font-bold text-white bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:from-indigo-600 hover:to-fuchsia-600 transition-all duration-300 hover:scale-105 shadow-lg"
+                  >
+                    Schedule Site Visit
+                  </button>
                 </div>
               </form>
             )}
@@ -392,7 +499,7 @@ export default function PropertyDetails() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-600">Monthly Rent:</span>
-                <span className="font-semibold text-indigo-600">₹{property.price.replace('₹', '').replace(' Lakhs', '000')}</span>
+                <span className="font-semibold text-indigo-600">{property.price}</span>
               </div>
               {property.maintenanceMonthly && (
                 <div className="flex justify-between">
@@ -414,29 +521,50 @@ export default function PropertyDetails() {
       </div>
 
       {/* Similar Properties */}
-      <div className="border-t pt-8">
-        <h3 className="text-2xl font-bold mb-6">Similar Properties</h3>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            { id: 2, title: '1BHK in Patia', price: '₹28L', badge: '1BHK', img: '/images/p-2.png' },
-            { id: 3, title: '3BHK in Jaydev Vihar', price: '₹65L', badge: '3BHK', img: '/images/p-5.png' },
-            { id: 4, title: '2BHK in Saheed Nagar', price: '₹42L', badge: '2BHK', img: '/images/p-4.png' },
-          ].map((prop) => (
-            <Link key={prop.id} to={`/properties/${prop.id}`} className="group">
-              <article className="overflow-hidden rounded-2xl border bg-white group-hover:shadow-lg transition">
-                <div className="relative">
-                  <img src={prop.img} alt={prop.title} className="h-48 w-full object-cover" />
-                  <span className="badge absolute left-3 top-3">{prop.badge}</span>
+<div className="border-t pt-8">
+  <h3 className="text-2xl font-bold mb-6">Similar Properties</h3>
+  <div className="relative">
+    <div className="flex overflow-x-auto pb-4 hide-scrollbar gap-6">
+      {similarProperties.map((property) => (
+        <Link 
+          key={property._id} 
+          to={`/properties/${property._id}`} 
+          className="group min-w-[300px] flex-shrink-0"
+        >
+          <article className="overflow-hidden rounded-2xl border bg-white group-hover:shadow-lg transition h-full">
+            <div className="relative">
+              <img 
+                src={property.images[0]?.url || '/images/placeholder.jpg'} 
+                alt={property.title} 
+                className="h-48 w-full object-cover" 
+              />
+              <span className="badge absolute left-3 top-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium">
+                {property.bhk}BHK
+              </span>
+            </div>
+            <div className="p-4">
+              <h4 className="font-semibold group-hover:text-sky-600 transition line-clamp-1">
+                {property.title}
+              </h4>
+              <div className="flex justify-between items-center mt-2">
+                <div className="text-sky-600 font-bold">₹{property.price.toLocaleString('en-IN')}</div>
+                <div className="text-sm text-gray-500">
+                  {property.location.address}, {property.location.city}
                 </div>
-                <div className="p-4">
-                  <h4 className="font-semibold group-hover:text-sky-600 transition">{prop.title}</h4>
-                  <div className="text-sky-600 font-bold mt-1">{prop.price}</div>
-                </div>
-              </article>
-            </Link>
-          ))}
-        </div>
-      </div>
+              </div>
+              <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+                <span>{property.carpetArea?.value || property.superBuiltupArea?.value || 'N/A'} sqft</span>
+                <span>•</span>
+                <span>{property.furnishing}</span>
+              </div>
+            </div>
+          </article>
+        </Link>
+      ))}
+    </div>
+  </div>
+</div>
+
     </section>
   )
 }

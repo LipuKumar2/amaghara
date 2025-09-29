@@ -102,7 +102,7 @@ export default function Pricing() {
       currency: "INR",
       receipt: `receipt_${new Date().getTime()}`,
     };
-    const response = await fetch("http://localhost:5000/api/order", {
+    const response = await fetch("https://amaghara-server.onrender.com/api/order", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

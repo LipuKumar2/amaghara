@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-
+import { useNavigate } from 'react-router-dom'
 export default function Home() {
   const [searchFilters, setSearchFilters] = useState({
     location: '', type: '', minPrice: '', maxPrice: ''
@@ -8,7 +8,10 @@ export default function Home() {
   const [activeFAQ, setActiveFAQ] = useState(null)
   const [currentTextIndex, setCurrentTextIndex] = useState(0)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
-
+  const [properties, setProperties] = useState([])
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate() ;
+const [error, setError] = useState(null)
   const changingTexts = ['home', 'land', 'flat']
   const heroSlides = [
     {
@@ -46,6 +49,31 @@ export default function Home() {
     }
   }, [])
 
+    useEffect(() => {
+      const fetchProperties = async () => {
+        try {
+          setLoading(true)
+          const response = await fetch('https://amaghara-server.onrender.com/property/property')
+          if (!response.ok) {
+            throw new Error('Failed to fetch properties')
+          }
+          const data = await response.json()
+          if (data.success && data.properties) {
+            setProperties(data.properties)
+          } else {
+            throw new Error('Invalid response format')
+          }
+        } catch (err) {
+          setError(err.message)
+          console.error('Error fetching properties:', err)
+        } finally {
+          setLoading(false)
+        }
+      }
+  
+      fetchProperties()
+    }, [])
+
   const allProperties = [
     { id: 1, title: '1RK near KIIT Square', price: 6500, priceLabel: '₹6,500/mo', badge: '1RK • Rent', img: '/images/p-1.png', location: 'kiit square', type: '1RK' },
     { id: 2, title: '2BHK • Nayapalli', price: 4500000, priceLabel: '₹45L', badge: '2BHK • Sale', img: '/images/p-2.png', location: 'nayapalli', type: '2BHK' },
@@ -54,17 +82,19 @@ export default function Home() {
     { id: 5, title: '3BHK • Saheed Nagar', price: 6500000, priceLabel: '₹65L', badge: '3BHK • Sale', img: '/images/p-6.png', location: 'saheed nagar', type: '3BHK' },
     { id: 6, title: '2BHK • Old Town', price: 12000, priceLabel: '₹12,000/mo', badge: '2BHK • Rent', img: '/images/p-7.png', location: 'old town', type: '2BHK' },
   ]
+const filteredProperties = properties.filter(property => {
+if (searchFilters.location) {
+  const locationString = Object.values(property.location)
+    .join(' ')
+    .toLowerCase();
+  if (!locationString.includes(searchFilters.location.toLowerCase())) return false;
+}  if (searchFilters.type && searchFilters.type !== 'Any' && property.type !== searchFilters.type) return false
+  const minPrice = searchFilters.minPrice ? parseInt(searchFilters.minPrice) : 0
+  const maxPrice = searchFilters.maxPrice ? parseInt(searchFilters.maxPrice) : Infinity
+  if (property.price < minPrice || property.price > maxPrice) return false
+  return true
+})
 
-  const filteredProperties = useMemo(() => {
-    return allProperties.filter(property => {
-      if (searchFilters.location && !property.location.toLowerCase().includes(searchFilters.location.toLowerCase())) return false
-      if (searchFilters.type && searchFilters.type !== 'Any' && property.type !== searchFilters.type) return false
-      const minPrice = searchFilters.minPrice ? parseInt(searchFilters.minPrice) : 0
-      const maxPrice = searchFilters.maxPrice ? parseInt(searchFilters.maxPrice) : Infinity
-      if (property.price < minPrice || property.price > maxPrice) return false
-      return true
-    })
-  }, [searchFilters])
 
   const handleSearchChange = (field, value) => setSearchFilters(prev => ({ ...prev, [field]: value }))
   const clearFilters = () => setSearchFilters({ location: '', type: '', minPrice: '', maxPrice: '' })
@@ -228,39 +258,6 @@ export default function Home() {
 
       
 
-      {/* Search */}
-      <div className="mx-auto max-w-7xl px-6 py-16 -mt-4">
-        <div className="rounded-3xl border-2 border-white bg-white/95 backdrop-blur p-8 shadow-2xl">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <span className="text-2xl">🔍</span>
-              Find Your Dream Property
-            </h3>
-            {(searchFilters.location || searchFilters.type || searchFilters.minPrice || searchFilters.maxPrice) && (
-              <button onClick={clearFilters} className="text-sm text-indigo-700 hover:underline font-semibold">✕ Clear filters</button>
-            )}
-          </div>
-          <div className="grid gap-4 md:grid-cols-5">
-            <input className="md:col-span-2 rounded-2xl border-2 border-slate-200 px-5 py-4 text-lg focus:border-indigo-500 focus:outline-none shadow-sm" placeholder="📍 Location (e.g., Patia, Nayapalli)" value={searchFilters.location} onChange={(e) => handleSearchChange('location', e.target.value)} />
-            <select className="rounded-2xl border-2 border-slate-200 px-5 py-4 text-lg focus:border-indigo-500 focus:outline-none shadow-sm" value={searchFilters.type} onChange={(e) => handleSearchChange('type', e.target.value)}>
-              <option value="">🏠 Type: Any</option>
-              <option value="1RK">1RK</option>
-              <option value="1BHK">1BHK</option>
-              <option value="2BHK">2BHK</option>
-              <option value="3BHK">3BHK</option>
-              <option value="Land">Land</option>
-            </select>
-            <input className="rounded-2xl border-2 border-slate-200 px-5 py-4 text-lg focus:border-indigo-500 focus:outline-none shadow-sm" placeholder="💰 Min Price (₹)" type="number" value={searchFilters.minPrice} onChange={(e) => handleSearchChange('minPrice', e.target.value)} />
-            <input className="rounded-2xl border-2 border-slate-200 px-5 py-4 text-lg focus:border-indigo-500 focus:outline-none shadow-sm" placeholder="💰 Max Price (₹)" type="number" value={searchFilters.maxPrice} onChange={(e) => handleSearchChange('maxPrice', e.target.value)} />
-          </div>
-          <div className="mt-4 flex items-center justify-between">
-            <div className="text-sm text-slate-600 font-semibold">📊 Showing {filteredProperties.length} of {allProperties.length} properties</div>
-            <Link to="/properties" className="rounded-2xl bg-indigo-600 px-6 py-3 font-bold text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-              View All Properties →
-            </Link>
-          </div>
-        </div>
-      </div>
 
       {/* Latest Deals */}
       <div className="mx-auto max-w-7xl px-6 pt-7 pb-20">
@@ -300,12 +297,15 @@ export default function Home() {
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { title: 'Land Plots', desc: 'Residential & commercial', icon: '🌱', onClick: () => handleSearchChange('type', 'Land') },
-            { title: '1RK & 1BHK', desc: 'Budget-friendly rentals', icon: '🏠', onClick: () => handleSearchChange('type', '1RK') },
-            { title: '2BHK', desc: 'Family-friendly homes', icon: '🏡', onClick: () => handleSearchChange('type', '2BHK') },
-            { title: '3BHK', desc: 'Premium spacious living', icon: '🏰', onClick: () => handleSearchChange('type', '3BHK') },
-          ].map((c) => (
-            <button key={c.title} onClick={c.onClick} className="rounded-3xl border-2 border-slate-200 bg-white p-8 text-left shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:border-indigo-300">
+    { title: 'Land Plots', desc: 'Residential & commercial', icon: '🌱', param: 'land' },
+    { title: '1RK & 1BHK', desc: 'Budget-friendly rentals', icon: '🏠', param: '1BHK' },
+    { title: '2BHK', desc: 'Family-friendly homes', icon: '🏡', param: '2BHK' },
+    { title: '3BHK', desc: 'Premium spacious living', icon: '🏰', param: '3BHK' },
+  ].map((c) => (
+        
+            <button key={c.title}
+    onClick={() => navigate(`/properties?type=${c.param}`)}
+                 className="rounded-3xl border-2 border-slate-200 bg-white p-8 text-left shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:border-indigo-300">
               <div className="text-4xl mb-4">{c.icon}</div>
               <div className="text-xl font-bold mb-2 text-slate-900">{c.title}</div>
               <div className="text-sm text-slate-600 font-semibold">{c.desc}</div>
@@ -343,42 +343,170 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Properties (filtered) */}
-      <div className="mx-auto max-w-7xl px-6 pt-7 pb-20">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-3xl font-black text-slate-900">{(searchFilters.location || searchFilters.type || searchFilters.minPrice || searchFilters.maxPrice) ? '🔍 Search Results' : '⭐ Featured Listings'}</h2>
-          <Link to="/properties" className="text-sm font-bold text-indigo-700 hover:underline">View all →</Link>
+
+      {/* Search */}
+      <div className="mx-auto max-w-7xl px-6 py-16 -mt-4">
+        <div className="rounded-3xl border-2 border-white bg-white/95 backdrop-blur p-8 shadow-2xl">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <span className="text-2xl">🔍</span>
+              Find Your Dream Property
+            </h3>
+            {(searchFilters.location || searchFilters.type || searchFilters.minPrice || searchFilters.maxPrice) && (
+              <button onClick={clearFilters} className="text-sm text-indigo-700 hover:underline font-semibold">✕ Clear filters</button>
+            )}
+          </div>
+          <div className="grid gap-4 md:grid-cols-5">
+            <input className="md:col-span-2 rounded-2xl border-2 border-slate-200 px-5 py-4 text-lg focus:border-indigo-500 focus:outline-none shadow-sm" placeholder="📍 Location (e.g., Patia, Nayapalli)" value={searchFilters.location} onChange={(e) => handleSearchChange('location', e.target.value)} />
+            <select className="rounded-2xl border-2 border-slate-200 px-5 py-4 text-lg focus:border-indigo-500 focus:outline-none shadow-sm" value={searchFilters.type} onChange={(e) => handleSearchChange('type', e.target.value)}>
+              <option value="">🏠 Type: Any</option>
+              <option value="1RK">1RK</option>
+              <option value="1BHK">1BHK</option>
+              <option value="2BHK">2BHK</option>
+              <option value="3BHK">3BHK</option>
+              <option value="Land">Land</option>
+            </select>
+            <input className="rounded-2xl border-2 border-slate-200 px-5 py-4 text-lg focus:border-indigo-500 focus:outline-none shadow-sm" placeholder="💰 Min Price (₹)" type="number" value={searchFilters.minPrice} onChange={(e) => handleSearchChange('minPrice', e.target.value)} />
+            <input className="rounded-2xl border-2 border-slate-200 px-5 py-4 text-lg focus:border-indigo-500 focus:outline-none shadow-sm" placeholder="💰 Max Price (₹)" type="number" value={searchFilters.maxPrice} onChange={(e) => handleSearchChange('maxPrice', e.target.value)} />
+          </div>
+
         </div>
-        {filteredProperties.length > 0 ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredProperties.slice(0, 6).map((property) => (
-              <Link key={property.id} to={`/properties/${property.id}`} className="group">
-                <article className="overflow-hidden rounded-3xl border-2 border-white bg-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-                  <div className="relative">
-                    <img src={property.img} alt={property.title} className="h-64 w-full object-cover group-hover:scale-110 transition-transform duration-300" />
-                    <span className="absolute left-4 top-4 bg-white/95 backdrop-blur rounded-full px-3 py-1 text-xs font-bold text-slate-800 shadow-lg border border-indigo-100">{property.badge}</span>
-                    <div className="absolute right-4 top-4">
-                      <button className="h-10 w-10 rounded-full bg-white/95 backdrop-blur text-slate-600 shadow-lg hover:text-rose-600 border border-indigo-100 transition-colors duration-300">♡</button>
-                    </div>
-                  </div>
-                  <div className="p-6 space-y-3">
-                    <h3 className="font-bold text-lg group-hover:text-indigo-700 transition-colors duration-300">{property.title}</h3>
-                    <div className="text-indigo-700 font-black text-xl">{property.priceLabel}</div>
-                    <button className="w-full rounded-2xl border-2 border-slate-300 py-3 font-bold text-slate-700 hover:border-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-300">View Details →</button>
-                  </div>
-                </article>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <div className="text-6xl mb-4">🔍</div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">No properties found</h3>
-            <p className="text-slate-600 mb-4">Try adjusting your search filters</p>
-            <button onClick={clearFilters} className="rounded-2xl bg-indigo-600 px-6 py-3 font-bold text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">Clear Filters</button>
-          </div>
+      </div>
+
+{/* Properties (filtered) */}
+<div className="mx-auto max-w-7xl px-4 pt-5 pb-12">
+  <div className="flex items-center justify-between mb-6">
+    <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+      {(searchFilters.location || searchFilters.type || searchFilters.minPrice || searchFilters.maxPrice) 
+        ? <>🔍 <span>Search Results</span></> 
+        : <>⭐ <span>Featured Listings</span></>
+      }
+    </h2>
+    <Link 
+      to="/properties" 
+      className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 hover:underline transition-colors duration-200 flex items-center gap-1"
+    >
+      View all <span className="text-xs">→</span>
+    </Link>
+  </div>
+  
+  {filteredProperties.length > 0 ? (
+    <div className="relative">
+      {/* Horizontal scrolling container */}
+      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 scroll-smooth">
+        <style jsx>{`
+          .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+          .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
+        
+        {filteredProperties.slice(0, 8).map((property,index) => (
+          <Link 
+            key={index} 
+            to={`/properties/${property._id}`}
+            className="group flex-shrink-0 w-72"
+          >
+            <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-full">
+              <div className="relative">
+                <img 
+                  src={property.pictures[0]} 
+                  alt={property.title} 
+                  className="h-48 w-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                />
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent"></div>
+                
+                <span className="absolute left-3 top-3 bg-white/95 backdrop-blur-sm rounded-full px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm border border-slate-200/50">
+                  {property.badge}
+                </span>
+                
+                <div className="absolute right-3 top-3">
+                  <button className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm text-slate-500 shadow-sm hover:text-rose-500 hover:bg-white border border-slate-200/50 transition-all duration-300 flex items-center justify-center text-sm">
+                    ♡
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-4 space-y-2.5">
+                <h3 className="font-bold text-base leading-tight group-hover:text-indigo-600 transition-colors duration-300 line-clamp-2">
+                  {property.title}
+                </h3>
+                
+                <div className="text-indigo-600 font-black text-lg">
+                  {property.priceLabel}
+                </div>
+                
+                <button className="w-full rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-700 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all duration-300 flex items-center justify-center gap-1">
+                  View Details 
+                  <span className="text-xs transition-transform duration-300 group-hover:translate-x-0.5">→</span>
+                </button>
+              </div>
+            </article>
+          </Link>
+        ))}
+        
+        {/* Show more card if there are more properties */}
+        {filteredProperties.length > 8 && (
+          <Link 
+            to={`/properties/${i._id}`}
+            className="flex-shrink-0 w-72 group"
+          >
+            <div className="h-full rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all duration-300 flex flex-col items-center justify-center text-center p-8">
+              <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300">🏠</div>
+              <h3 className="font-bold text-slate-700 mb-2">View More Properties</h3>
+              <p className="text-sm text-slate-500 mb-4">
+                +{filteredProperties.length - 8} more available
+              </p>
+              <div className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm group-hover:shadow-md transition-all duration-300">
+                Browse All →
+              </div>
+            </div>
+          </Link>
         )}
       </div>
+      
+      {/* Scroll indicators */}
+      <div className="absolute top-1/2 -left-2 transform -translate-y-1/2 z-10">
+        <button 
+          onClick={(e) => {
+            e.preventDefault();
+            e.currentTarget.closest('.relative').querySelector('.overflow-x-auto').scrollBy({ left: -300, behavior: 'smooth' });
+          }}
+          className="h-10 w-10 rounded-full bg-white shadow-lg border border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100"
+        >
+          ←
+        </button>
+      </div>
+      <div className="absolute top-1/2 -right-2 transform -translate-y-1/2 z-10">
+        <button 
+          onClick={(e) => {
+            e.preventDefault();
+            e.currentTarget.closest('.relative').querySelector('.overflow-x-auto').scrollBy({ left: 300, behavior: 'smooth' });
+          }}
+          className="h-10 w-10 rounded-full bg-white shadow-lg border border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100"
+        >
+          →
+        </button>
+      </div>
+    </div>
+  ) : (
+    <div className="text-center py-12">
+      <div className="text-5xl mb-3 animate-bounce">🔍</div>
+      <h3 className="text-lg font-bold text-slate-900 mb-2">No properties found</h3>
+      <p className="text-slate-600 mb-4 text-sm">Try adjusting your search filters</p>
+      <button 
+        onClick={clearFilters} 
+        className="rounded-xl bg-indigo-600 px-5 py-2.5 font-semibold text-white shadow-md hover:shadow-lg hover:bg-indigo-700 transition-all duration-300"
+      >
+        Clear Filters
+      </button>
+    </div>
+  )}
+</div>
 
       {/* Virtual Tour */}
       <div className="mx-auto max-w-7xl px-6 pt-7 pb-20">
@@ -392,7 +520,7 @@ export default function Home() {
                 <li className="flex items-center gap-2"><span className="text-emerald-500 font-bold">✓</span> Measure room dimensions</li>
                 <li className="flex items-center gap-2"><span className="text-emerald-500 font-bold">✓</span> Check natural lighting</li>
               </ul>
-              <Link to="/properties/2" className="rounded-2xl bg-indigo-600 px-8 py-4 font-bold text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 inline-block">Start Virtual Tour</Link>
+              <Link to="/contact" className="rounded-2xl bg-indigo-600 px-8 py-4 font-bold text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 inline-block">Start Virtual Tour</Link>
             </div>
             <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
               <img src="/images/p-1.png" alt="Virtual tour" className="w-full h-80 object-cover" />

@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState ,useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import Razorpay from 'razorpay'
+import Razorpay from 'razorpay';
+import { useNavigate } from 'react-router-dom';
 export default function UserPricing() {
   const [selectedPlan, setSelectedPlan] = useState(null)
 
@@ -86,8 +87,52 @@ export default function UserPricing() {
     }
   ]
 
+
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+  const [error, setError] = useState(null);
+const navigate = useNavigate();
+  // Fetch user data
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('https://amaghara-server.onrender.com/user/home', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setUser(data.user);
+      } else {
+        setUser(null);
+        setError(data.message || 'Failed to fetch user data');
+      }
+    } catch (err) {
+      setError('Error connecting to server');
+      setUser(null);
+      console.error('Fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
 const paymentHandler = async (plan, e) => {
   e.preventDefault();
+  if(!user) {
+    toast.error('Please log in to proceed with the payment.');
+    navigate('/login');
+    return;
+  }
   const price = plan?.price;
   try {
     // Create order on backend
@@ -97,7 +142,7 @@ const paymentHandler = async (plan, e) => {
       receipt: `receipt_${new Date().getTime()}`,
     };
     
-    const response = await fetch("http://localhost:5000/api/order", {
+    const response = await fetch("https://amaghara-server.onrender.com/api/order", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -114,7 +159,7 @@ const paymentHandler = async (plan, e) => {
 
     // Check if Razorpay script is loaded
     if (!window.Razorpay) {
-      alert('Razorpay SDK not loaded. Please refresh the page and try again.');
+      toast.error('Razorpay SDK not loaded. Please refresh the page and try again.');
       return;
     }
 
@@ -178,21 +223,21 @@ const paymentHandler = async (plan, e) => {
     
     rzp.on('payment.failed', function (response) {
       console.error('Payment failed:', response.error);
-      alert(`Payment failed: ${response.error.description}`);
+      toast.error(`Payment failed: ${response.error.description}`);
       
       // You can handle specific error cases here
       switch(response.error.code) {
         case 'BAD_REQUEST_ERROR':
-          alert('There was an issue with your payment details. Please try again.');
+          toast.error('There was an issue with your payment details. Please try again.');
           break;
         case 'GATEWAY_ERROR':
-          alert('Payment gateway error. Please try again later.');
+          toast.error('Payment gateway error. Please try again later.');
           break;
         case 'NETWORK_ERROR':
-          alert('Network error. Please check your connection and try again.');
+          toast.error('Network error. Please check your connection and try again.');
           break;
         default:
-          alert('Payment failed. Please try again.');
+          toast.error('Payment failed. Please try again.');
       }
     });
 
@@ -201,14 +246,14 @@ const paymentHandler = async (plan, e) => {
     
   } catch (error) {
     console.error('Error in payment handler:', error);
-    alert('Something went wrong. Please try again.');
+    toast.error('Something went wrong. Please try again.');
   }
 };
 
 // Function to verify payment on backend
 const verifyPayment = async (paymentData) => {
   try {
-    const response = await fetch("http://localhost:5000/api/verify-payment", {
+    const response = await fetch("https://amaghara-server.onrender.com/api/verify-payment", {
       method: "POST",
       credentials: 'include',
       headers: {
@@ -221,15 +266,15 @@ const verifyPayment = async (paymentData) => {
     
     if (result.success) {
       // Payment verified successfully
-      alert('Payment successful! Your plan has been activated.');
+      toast.success('Payment successful! Your plan has been activated.');
       // Redirect to success page or dashboard
       // window.location.href = '/dashboard';
     } else {
-      alert('Payment verification failed. Please contact support.');
+      toast.error('Payment verification failed. Please contact support.');
     }
   } catch (error) {
     console.error('Error verifying payment:', error);
-    alert('Error verifying payment. Please contact support.');
+    toast.error('Error verifying payment. Please contact support.');
   }
 };
 

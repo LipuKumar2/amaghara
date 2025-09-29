@@ -8,18 +8,47 @@ const AdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+const [loginError, setLoginError] = useState('');
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    // Hardcoded admin check
-    if (email === "admin@example.com" && password === "admin123") {
+const handleLogin = async (e) => {
+  e.preventDefault();
+  setLoginError('');
+  setIsLoading(true);
+
+  // Basic client-side validation
+  if (!email || !password) {
+    setLoginError('Please enter both email and password');
+    setIsLoading(false);
+    return;
+  }
+
+  try {
+    const response = await fetch('https://amaghara-server.onrender.com/admin/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+      credentials: 'include'
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.success) {
       localStorage.setItem("isAdmin", "true");
-      navigate("/dashboard");
+      navigate("/admin/dashboard");
     } else {
-      alert("Invalid credentials");
+      setLoginError(data.message || "Invalid credentials");
     }
-  };
+  } catch (error) {
+    console.error('Login error:', error);
+    setLoginError("Login failed. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
 
     const handleAdminGoogleLogin = () => {
@@ -28,7 +57,7 @@ const AdminLogin = () => {
       setError(null);
       
       // Redirect to the admin Google OAuth endpoint
-      window.location.href = `http://localhost:5000/auth/admin/google`;
+      window.location.href = `https://amaghara-server.onrender.com/auth/admin/google`;
     } catch (err) {
       console.error('Admin Google login error:', err);
       setError('Failed to initiate admin login. Please try again.');
@@ -84,9 +113,12 @@ const AdminLogin = () => {
           {/* Login Button */}
           <button
             type="submit"
+                disabled={isLoading}
+
             className="w-full bg-gradient-to-r from-indigo-600 to-pink-600 text-white py-3 rounded-xl font-bold shadow hover:shadow-lg hover:scale-[1.02] transition-transform"
           >
-            Login
+                {isLoading ? 'Logging in...' : 'Login'}
+
           </button>
         </form>
 

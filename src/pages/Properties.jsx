@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 export default function Properties() {
   const [query, setQuery] = useState('')
   const [activeTab, setActiveTab] = useState('all') // all | rent | sale | land | 1RK | 1BHK | 2BHK | 3BHK
@@ -11,13 +12,14 @@ export default function Properties() {
   const [properties, setProperties] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-
+  const [user, setUser] = useState(null);
+const navigate = useNavigate();
   // Fetch properties from API
   useEffect(() => {
     const fetchProperties = async () => {
       try {
         setLoading(true)
-        const response = await fetch('http://localhost:5000/property/property')
+        const response = await fetch('https://amaghara-server.onrender.com/property/property')
         if (!response.ok) {
           throw new Error('Failed to fetch properties')
         }
@@ -34,22 +36,57 @@ export default function Properties() {
         setLoading(false)
       }
     }
-
+fetchUserData();
     fetchProperties()
   }, [])
 
   // Read URL params for pre-filling filters
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const typeParam = params.get('type')
-    const queryParam = params.get('query')
-    if (typeParam && tabOptions.some(t => t.key === typeParam)) {
-      setActiveTab(typeParam)
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const typeParam = params.get('type')
+  const queryParam = params.get('query')
+  if (typeParam && tabOptions.some(t => t.key === typeParam)) {
+    setActiveTab(typeParam)
+  }
+  if (queryParam) {
+    setQuery(queryParam)
+  }
+}, [])
+
+
+
+
+  // Fetch user data
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('https://amaghara-server.onrender.com/user/home', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setUser(data.user);
+      } else {
+        setUser(null);
+        toast.error("Please login to access all features.");
+        navigate('/login');
+      }
+    } catch (err) {
+      setError('Error connecting to server');
+      setUser(null);
+      console.error('Fetch error:', err);
+    } finally {
+      setLoading(false);
     }
-    if (queryParam) {
-      setQuery(queryParam)
-    }
-  }, [])
+  };
+
+
 
   const sliderRef = useRef(null)
 
@@ -373,16 +410,6 @@ export default function Properties() {
         )}
       </div>
 
-      {/* Map Preview */}
-      <div className="relative overflow-hidden rounded-3xl border-2 border-white">
-        <img src="/images/p-6.png" alt="Map preview" className="w-full h-64 object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Link to="/contact" className="rounded-2xl bg-white px-6 py-3 font-black text-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300">
-            Open Map View →
-          </Link>
-        </div>
-      </div>
 
       {/* Bottom CTA */}
       <div className="text-center">
